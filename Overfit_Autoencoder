@@ -1,0 +1,200 @@
+import torch
+from torch.utils.data import Dataset, DataLoader
+import torch.nn as nn
+import torch.optim as optim
+import matplotlib.pyplot as plt
+from  traces_visualization import prepare_denoise_data
+import numpy as np
+import os
+#running python script properly
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
+# Define the custom dataset class
+class NoisyDataset(Dataset):
+    """A dataset that adds noise to the original data based on SNR."""
+    
+    def __init__(self, original_dataset, snr_value):
+        self.original_dataset = original_dataset
+        self.snr_value = abs(snr_value)  # Ensure the SNR value is positive
+    
+    def __len__(self):
+        return len(self.original_dataset)
+    
+    def __getitem__(self, idx):
+        pure_data = self.original_dataset[idx]
+        if not isinstance(pure_data, torch.Tensor):
+            pure_data = torch.tensor(pure_data, dtype=torch.float32)
+        
+        signal_abs = torch.abs(pure_data)
+        S = torch.max(signal_abs)
+        
+        # Ensure N is never negative
+        N = S / self.snr_value  # Prevent division by zero or negative values
+        
+        noise = torch.normal(0, N.item(), pure_data.size())
+        noisy_data = pure_data + noise
+        # noisy_data = torch.clamp(noisy_data, -1., 1.)
+        
+        return pure_data, noisy_data, self.snr_value
+
+# Define the Autoencoder model class
+class Autoencoder(nn.Module):
+    """A simple Autoencoder model."""
+    def __init__(self):
+        super(Autoencoder, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv1d(1, 32, 3, padding=1),
+            nn.ReLU(True),
+            nn.MaxPool1d(2, stride=2),
+            nn.Conv1d(32, 64, 3, padding=1),
+            nn.ReLU(True),
+            nn.MaxPool1d(2, stride=2),
+            nn.Conv1d(64, 128, 3, padding=1),
+            nn.ReLU(True),
+            nn.MaxPool1d(2, stride=2),
+        )
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose1d(128, 64, 4, stride=2, padding=1),
+            nn.ReLU(True),
+            nn.ConvTranspose1d(64, 32, 4, stride=2, padding=1),
+            nn.ReLU(True),
+            nn.ConvTranspose1d(32, 1, 4, stride=2, padding=1),
+        )
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
+    
+
+def initialize_model(learning_rate=0.001):
+    """Initialize the model and optimizer."""
+    model = Autoencoder().to(device)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    return model, optimizer
+
+
+# Preparation for training
+train_loader, valid_loader, test_loader = prepare_denoise_data(ndat_train=1, ndat_valid=1, ndat_test=1, batch_size=1)
+pure_train_loader = DataLoader(train_loader.dataset, batch_size=1, shuffle=True)
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(f'Device set to: {device}')
+
+model, optimizer = initialize_model()
+criterion = nn.MSELoss()
+num_epochs = 1000
+train_losses = []
+test_losses = [[] for _ in range(num_epochs)]  # Initialize a list of lists for test losses
+
+
+# Training Phase
+# Train on the pure single 'pure signal' sample
+pure_train_loader = DataLoader(NoisyDataset(train_loader.dataset, snr_value=float('inf')), batch_size=16, shuffle=True)
+average_test_loss_per_epoch = []
+for epoch in range(num_epochs):
+    model.train()
+    train_loss = 0.0
+    for pure_data, noisy_data, _ in pure_train_loader:
+        pure_data, noisy_data = pure_data.to(device), noisy_data.to(device)
+        optimizer.zero_grad()
+        outputs = model(noisy_data)
+        loss = criterion(outputs, pure_data)
+        loss.backward()
+        optimizer.step()
+        train_loss += loss.item()
+    train_losses.append(train_loss / len(pure_train_loader))
+
+    # Evaluation Phase
+    # Evaluate the model on the noisy test data
+    snr_range = [5,30,5]
+    model.eval()
+    epoch_test_losses = []
+    for snr_value in snr_range:
+        noisy_test_loader = DataLoader(NoisyDataset(test_loader.dataset, snr_value=snr_value), batch_size=16, shuffle=True)
+        test_loss = 0.0
+        with torch.no_grad():
+            for pure_data, noisy_data, _ in noisy_test_loader:
+                pure_data, noisy_data = pure_data.to(device), noisy_data.to(device)
+                outputs = model(noisy_data)
+                loss = criterion(outputs, pure_data)
+                test_loss += loss.item()
+        test_loss /= len(noisy_test_loader)
+        epoch_test_losses.append(test_loss)  # Collect test loss for the current epoch and SNR
+    test_losses[epoch] = np.mean(epoch_test_losses)
+    print(f'Epoch [{epoch + 1}/{num_epochs}], Train Loss: {train_losses[-1]:.4f}, Test Loss: {test_losses[epoch]:.4f}')
+
+
+# Training data 
+plt.figure(figsize=(10, 6))
+plt.plot(train_losses, label='Training Loss',color='blue')
+plt.plot(test_losses, label='Test Loss',  color='red')  # Now plotting a list of average test losses
+plt.xlabel(xlabel = 'Epoch', fontsize=16)
+plt.ylabel(ylabel ='Loss', fontsize=16)
+plt.title(label = 'Training and Test Loss over Epochs', fontsize = 20)
+plt.legend()
+plt.show()
+snr_values = [float('inf'), 20,10,5,1,0.1,0.0001,0]  # Example SNR values 
+model.eval()
+with torch.no_grad():
+    for snr_value in snr_values:
+        noisy_train_loader = DataLoader(NoisyDataset(train_loader.dataset, snr_value=snr_value), batch_size=1, shuffle=False)
+        for pure_data, noisy_data, _ in noisy_train_loader:
+            pure_data, noisy_data = pure_data.to(device), noisy_data.to(device)
+            denoised_output = model(noisy_data)
+
+            plt.figure(figsize=(18, 6))
+            
+            # Subplot for Pure and Denoised data
+            plt.subplot(2, 1, 1)
+            plt.plot(pure_data.cpu().squeeze(), label='Pure', color='blue')
+            plt.plot(denoised_output.cpu().squeeze(), label=f'Denoised SNR = {snr_value}', linestyle='--', color='orange')
+            plt.title(f'Comparison of Pure and Denoised Data at SNR = {snr_value}', )
+            plt.legend(fontsize = 16)
+            
+            # Subplot for Noisy data
+            plt.subplot(2, 1, 2)
+            plt.plot(noisy_data.cpu().squeeze(), label=f'Noisy SNR = {snr_value}', color='red')
+            plt.title(f'Noisy Data at SNR = {snr_value}')
+            plt.legend(fontsize = 16)
+            
+            # plt.tight_layout()
+            plt.show()
+
+print('Evaluation of Train dataset is complete')
+
+# Test data
+plt.figure(figsize=(10, 6))
+plt.plot(train_losses, label='Training Loss',color='blue')
+plt.plot(test_losses, label='Test Loss',  color='red')  # Now plotting a list of average test losses
+plt.xlabel(xlabel = 'Epoch', fontsize=16)
+plt.ylabel(ylabel ='Loss', fontsize=16)
+plt.title(label = 'Training and Test Loss over Epochs', fontsize = 20)
+plt.legend()
+plt.show()
+snr_values = [float('inf'), 20,10,5,1,0.1,0.0001,0]  # Example SNR values 
+model.eval()
+with torch.no_grad():
+    for snr_value in snr_values:
+        noisy_train_loader = DataLoader(NoisyDataset(test_loader.dataset, snr_value=snr_value), batch_size=1, shuffle=False)
+        for pure_data, noisy_data, _ in noisy_train_loader:
+            pure_data, noisy_data = pure_data.to(device), noisy_data.to(device)
+            denoised_output = model(noisy_data)
+
+            plt.figure(figsize=(18, 6))
+            
+            # Subplot for Pure and Denoised data
+            plt.subplot(2, 1, 1)
+            plt.plot(pure_data.cpu().squeeze(), label='Pure', color='blue')
+            plt.plot(denoised_output.cpu().squeeze(), label=f'Denoised SNR = {snr_value}', linestyle='--', color='orange')
+            plt.title(f'Comparison of Pure and Denoised Data at SNR = {snr_value}', )
+            plt.legend(fontsize = 16)
+            
+            # Subplot for Noisy data
+            plt.subplot(2, 1, 2)
+            plt.plot(noisy_data.cpu().squeeze(), label=f'Noisy SNR = {snr_value}', color='red')
+            plt.title(f'Noisy Data at SNR = {snr_value}')
+            plt.legend(fontsize = 16)
+            
+            # plt.tight_layout()
+            plt.show()
+
+print('Evaluation of Test dataset is complete')
