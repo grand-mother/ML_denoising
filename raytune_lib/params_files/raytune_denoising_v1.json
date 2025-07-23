@@ -1,0 +1,19 @@
+{
+    "output_path": "./l1_v2_SINGCNN_20_100epochs_v2",
+    "noise_param_file": "/Users/923714256/ML_denoising/raytune_lib/params_files/RF_params_new_leffs_1024_500MHz_cc.json",
+    "tag": "l1_v2_SINGCNN_20_100epochs_v2",
+    "loss": "l1",
+    "which_noise": "gauss_gal",
+    "n_epochs": 100, 
+    "number_samples": 20,
+    "lst": 18, 
+    "model_type": "SingleBranchCNN", 
+    "model_to_load": " ./none.pth",
+    "xy_mode": false,
+    "real_an_train_file": "/Users/923714256/ML_denoising/data_for_sam/noise_traces_from_an_files/noise_AN_traces_train.npy",
+    "real_an_valid_file": "/Users/923714256/ML_denoising/data_for_sam/noise_traces_from_an_files/noise_AN_traces_valid.npy",
+    "real_an_test_file": "/Users/923714256/ML_denoising/data_for_sam/noise_traces_from_an_files/noise_AN_traces_test.npy",
+    "save_path_clean_sims_train": "/Users/923714256/ML_denoising/data_for_sam/datasets_v2/voltage_noiseless_traces_adccut15_train.npy",
+    "save_path_clean_sims_validation":  "/Users/923714256/ML_denoising/data_for_sam/datasets_v2/voltage_noiseless_traces_adccut15_validation.npy",
+    "save_path_clean_sims_test":  "/Users/923714256/ML_denoising/data_for_sam/datasets_v2/voltage_noiseless_traces_adccut15_test.npy"
+}
