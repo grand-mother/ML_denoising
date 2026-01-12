@@ -1,0 +1,18 @@
+# Core dependencies
+numpy>=1.21.0
+torch>=1.9.0
+scipy>=1.7.0
+matplotlib>=3.4.0
+
+# Hyperparameter optimization
+ray[tune]>=2.0.0
+
+# Data handling
+h5py>=3.0.0
+
+# Signal processing
+# (scipy covers most signal processing needs)
+
+# Optional: for notebooks
+jupyter>=1.0.0
+ipykernel>=6.0.0

@@ -1,0 +1,37 @@
+{
+  "lr": 5.930445777404969e-05,
+  "max_lr": 2.314226839272351e-05,
+  "step_size": 10000,
+  "lr_mode": "triangular",
+  "weight_decay": 0.0031420483610489847,
+  "batch_size": 1024,
+  "mag_weight": 0.018883223112669507,
+  "phase_weight": 0.6560464434991351,
+  "stft_weight": 0.010862722423104687,
+  "epochs": 2,
+  "criterion": "multi_l1",
+  "save_folder_name": "/pbs/home/o/omacias/Sam_project/raytune_lib_final/results/multi_l1_example",
+  "model_type": "CNN",
+  "model_config": {
+    "time_branch": {
+      "conv_channels": 128,
+      "res_channels": [
+        64,
+        128
+      ]
+    },
+    "freq_branch": {
+      "conv_channels": 128,
+      "res_channels": [
+        128,
+        256
+      ]
+    },
+    "decoder_channels": [
+      128,
+      64,
+      32,
+      3
+    ]
+  }
+}

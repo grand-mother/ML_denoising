@@ -1,0 +1,28 @@
+{
+    "CNN": {
+        "time_branch": {
+            "conv_channels": {
+                "type": "choice",
+                "values": [64, 128]
+            },
+            "res_channels": {
+                "type": "choice",
+                "values": [[64, 128], [128, 256]]
+            }
+        },
+        "freq_branch": {
+            "conv_channels": {
+                "type": "choice",
+                "values": [64, 128]
+            },
+            "res_channels": {
+                "type": "choice",
+                "values": [[64, 128], [128, 256]]
+            }
+        },
+        "decoder_channels": {
+            "type": "choice",
+            "values": [[128, 64, 32, 3], [256, 128, 64, 3], [64, 32, 16, 3], [32, 16, 8, 3]]
+        }
+    }
+}

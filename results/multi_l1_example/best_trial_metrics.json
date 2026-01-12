@@ -1,0 +1,9 @@
+{
+  "validation_loss": 103.81418088587318,
+  "validation_psnr": 51.28822431931151,
+  "training_loss": null,
+  "epoch": null,
+  "model_type": "CNN",
+  "trial_id": "e493f_00000",
+  "local_path": "/tmp/ray/session_2026-01-12_07-41-40_532951_172856/artifacts/2026-01-12_07-42-41/train_validate_wrapper_2026-01-12_07-42-41/driver_artifacts/train_validate_wrapper_e493f_00000_0_batch_size=1024,lr=0.0001,lr_mode=triangular,mag_weight=0.0189,max_lr=0.0000,decoder_channels_2026-01-12_07-42-41"
+}
