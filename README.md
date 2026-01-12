@@ -147,10 +147,10 @@ See `configs/README_config.md` for detailed configuration documentation.
 If you use this code, please cite:
 
 ```bibtex
-@article{yourpaper2025,
-  title={Radio Signal Denoising with CNN},
-  author={Author Names},
-  journal={Journal Name},
+@article{
+  title={Deep-Learning Denoising of Radio Observations for Ultra-High-Energy Cosmic-Ray Detection},
+  author={Zhisen Lai, Oscar Macias, Aur\'elien Benoit-L\'evy, Ars\`ene Ferri\`ere,Mat\'ias Tueros},
+  journal={},
   year={2025}
 }
 ```
