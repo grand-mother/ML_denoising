@@ -149,9 +149,9 @@ If you use this code, please cite:
 ```bibtex
 @article{
   title={Deep-Learning Denoising of Radio Observations for Ultra-High-Energy Cosmic-Ray Detection},
-  author={Zhisen Lai, Oscar Macias, Aur\'elien Benoit-L\'evy, Ars\`ene Ferri\`ere,Mat\'ias Tueros},
+  author={Zhisen Lai, Oscar Macias, Aur´elien Benoit--L´evy, Ars`ene Ferri`ere, MMat´ıas Tueros},
   journal={},
-  year={2025}
+  year={2026}
 }
 ```
 
