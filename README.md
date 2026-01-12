@@ -1,6 +1,6 @@
 # Radio Signal Denoising with CNN and Ray Tune
 
-A deep learning framework for radio signal denoising using Dual-Branch CNN architectures with Ray Tune hyperparameter optimization.
+A deep learning framework for radio signal denoising using a Dual-Branch autoencoder.
 
 ## 📁 Project Structure
 
