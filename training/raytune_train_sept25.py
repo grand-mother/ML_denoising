@@ -156,9 +156,9 @@ def get_criterion(name, config=None):
     elif name == "l1":
         return nn.L1Loss()
     elif name == "multi_mse": ## multi mse loss with mag and phase
-        return lambda pred, clean: multi_domain_mse_loss(clean, pred, mag_weight= config["mag_weight"], phase_weight= config["phase_weight"])
+        return lambda pred, clean: multi_domain_mse_loss(clean, pred, mag_weight= config["mag_weight"], phase_weight= config["phase_weight"], phase_weighting=config.get("phase_weighting", "none"))
     elif name == "multi_l1": ## multi l1 loss with mag and phase
-        return lambda pred, clean: multi_domain_l1_loss(clean, pred, mag_weight= config["mag_weight"], phase_weight= config["phase_weight"])
+        return lambda pred, clean: multi_domain_l1_loss(clean, pred, mag_weight= config["mag_weight"], phase_weight= config["phase_weight"], phase_weighting=config.get("phase_weighting", "none"))
     else:
         raise ValueError(f"Unknown criterion: {name}")
 
@@ -180,8 +180,11 @@ def train_validate(config, checkpoint_dir=None, train_loader=None, valid_loader=
 
     if config["model_type"] == "CNN":
         model = CNN(config["model_config"])
+    elif config["model_type"] == "TimeOnlyCNN":
+        from training.models.cnn import TimeOnlyAutoencoder
+        model = TimeOnlyAutoencoder(config["model_config"])
     else:
-        raise ValueError(f"Unknown model_type: {config['model_type']}. Only 'CNN' (DualBranchAutoencoder) is supported.")
+        raise ValueError(f"Unknown model_type: {config['model_type']}. Only 'CNN' or 'TimeOnlyCNN' are supported.")
 
     device = "cpu"
     if torch.cuda.is_available():

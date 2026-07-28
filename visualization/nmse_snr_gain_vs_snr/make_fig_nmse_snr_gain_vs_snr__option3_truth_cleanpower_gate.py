@@ -41,6 +41,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import hilbert, butter, sosfiltfilt
 
+# Canonical paper SNR (task 3): one shared definition for every figure.
+import sys as _sys
+from pathlib import Path as _Path
+_ROOT = _Path(__file__).resolve().parents[2]
+if str(_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(_ROOT))
+from utils.paper_losses_metrics import (
+    paper_input_snr, PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH, PRODUCTION_DDOF,
+)
+
 # ML mode support
 try:
     from common_ml_utils import (
@@ -193,6 +203,9 @@ def _clean_peak_index(clean_1d: np.ndarray) -> int:
 # -----------------------------
 # NEW: ROI-peak SNR (centered on CLEAN peak time)
 # -----------------------------
+# DEPRECATED (task 3): the noisy-ROI-peak / envelope-MAD SNR below is NOT the
+# paper SNR and is no longer used for the figure's x-axis (replaced by
+# paper_input_snr). Retained only so existing imports keep resolving.
 def _compute_snr_roi_peak_style(
     clean: np.ndarray,
     noisy: np.ndarray,
@@ -372,16 +385,23 @@ def plot_nmse_and_snr_gain_vs_snr(
     _validate_shapes(clean_waveforms, noisy_waveforms, denoised_waveforms, standard_waveforms)
     N, C, _ = clean_waveforms.shape
 
-    # --- SNR for x-axis ---
+    # --- SNR for x-axis (task 3: canonical paper off-pulse SNR) ---
+    # max|Hilbert(clean)| / std(noisy off-pulse), channel by channel, via the one
+    # shared paper_input_snr. Exclusion half-width is the PROVISIONAL task-4 value
+    # (record it in this figure's metadata).
+    _paper = paper_input_snr(
+        clean_waveforms, noisy_waveforms,
+        exclude_half_width_samples=PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH,
+        ddof=PRODUCTION_DDOF,
+    )
+    A_noisy, sigma_env = _paper.clean_peak, _paper.sigma_off  # for the optional trigger only
     if snr is None:
-        snr_pc, A_noisy, sigma_env = _compute_snr_roi_peak_style(clean_waveforms, noisy_waveforms, cfg)
+        snr_pc = _paper.snr
     else:
         snr = np.asarray(snr, dtype=np.float64)
         if snr.shape != (N, 3):
             raise ValueError(f"Provided snr must have shape (N,3). Got {snr.shape}")
         snr_pc = snr
-        # still compute A_noisy and sigma_env for optional trigger
-        _, A_noisy, sigma_env = _compute_snr_roi_peak_style(clean_waveforms, noisy_waveforms, cfg)
 
     # Trigger mask (optional)
     trigger_mask = np.ones((N, C), dtype=bool)

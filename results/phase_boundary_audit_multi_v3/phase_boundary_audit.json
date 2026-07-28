@@ -1,0 +1,50 @@
+{
+  "analysis_band": {
+    "absolute_phase_l1_change": 0.5215360640205635,
+    "boundary_count": 1124642,
+    "boundary_fraction": 0.23406445044256427,
+    "coefficient_count": 4804839,
+    "direct_phase_l1": 2.0294364445828728,
+    "phase_weight": 0.028892879445242478,
+    "relative_phase_l1_change": 0.25698565994155054,
+    "weighted_objective_change": 0.015068678624092405,
+    "wrapped_phase_l1": 1.5079003805623092
+  },
+  "full_band": {
+    "absolute_phase_l1_change": 0.5095235900152821,
+    "boundary_count": 7770401,
+    "boundary_fraction": 0.2454121585563713,
+    "coefficient_count": 31662657,
+    "direct_phase_l1": 2.071081131453213,
+    "phase_weight": 0.028892879445242478,
+    "relative_phase_l1_change": 0.2460181700645234,
+    "weighted_objective_change": 0.0147216036608187,
+    "wrapped_phase_l1": 1.561557541437931
+  },
+  "metadata": {
+    "checkpoint": "/sps/grand/macias/Sam_Result/multi_v3_CNN_100epochs_36samples/best_model.pth",
+    "counterfactual_objective_same_traces": {
+      "definition": "time_l1 + mag_weight*mag_l1 + phase_weight*phase_l1 (element-wise-mean L1; matches production multi_domain_loss_v3)",
+      "mag_l1": 7401.340575050287,
+      "mag_weight": 0.01167558670579447,
+      "n_traces": 41067,
+      "objective_absolute_change": 0.014721603660802884,
+      "objective_direct": 345.99429236552015,
+      "objective_relative_change": 4.2548689344419823e-05,
+      "objective_wrapped": 345.97957076185935,
+      "phase_l1_direct": 2.071081131453213,
+      "phase_l1_wrapped": 1.561557541437931,
+      "phase_weight": 0.028892879445242478,
+      "time_l1": 259.5194592449534
+    },
+    "criterion": "multi_v3",
+    "evaluation_manifest": "/pbs/home/o/omacias/Sam_project/raytune_lib_final/results/phase_boundary_audit_multi_v3/evaluation_manifest.npz",
+    "mag_weight": 0.01167558670579447,
+    "manifest_provenance": "post-hoc common evaluation; original production indices unavailable",
+    "n_valid_traces": 41067,
+    "note_trace_length_and_dt": "PROVISIONAL pending the task-1 production-config audit",
+    "phase_weight": 0.028892879445242478,
+    "sample_spacing_seconds": 5e-10,
+    "trace_length": 512
+  }
+}

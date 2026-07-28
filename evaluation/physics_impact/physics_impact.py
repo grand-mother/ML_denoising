@@ -518,7 +518,8 @@ def main():
         clean_signals, 
         [noise_signals], 
         indices=test_indices, 
-        swap_prob=0.5, 
+        swap_prob=0.0,
+        no_random=True, 
         target_start=120, 
         target_end=480, 
         voltage_to_adc=True

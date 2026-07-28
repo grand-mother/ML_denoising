@@ -32,13 +32,13 @@ if __name__ == "__main__":
     # With swapping enabled (default 50% probability)
 
     train_dataset = CustomDataset(clean_signals, [noise_signals], indices=train_indices, 
-                        swap_prob=0.5, target_start=120, target_end=480)
+                        swap_prob=0.0, no_random=True, target_start=120, target_end=480)
 
     valid_dataset = CustomDataset(clean_signals, [noise_signals], indices=valid_indices, 
-                        swap_prob=0.5, target_start=120, target_end=480)
+                        swap_prob=0.0, no_random=True, target_start=120, target_end=480)
 
     test_dataset = CustomDataset(clean_signals, [noise_signals], indices=test_indices, 
-                        swap_prob=0.5, target_start=120, target_end=480, voltage_to_adc=True)
+                        swap_prob=0.0, no_random=True, target_start=120, target_end=480, voltage_to_adc=True)
     print(f'shape of test_indices {np.shape(test_indices)}')
 
 

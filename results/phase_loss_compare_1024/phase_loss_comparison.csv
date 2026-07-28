@@ -1,0 +1,3 @@
+weighting,phase_weight,best_epoch,best_val_mse,best_val_l1,best_val_crit
+target_magnitude,0.023580860891914208,40,392206.263649,10.095472,23.522814
+none,0.023580860891914208,39,402620.891300,10.143083,23.610467

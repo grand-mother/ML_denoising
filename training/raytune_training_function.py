@@ -26,8 +26,9 @@ except ImportError:
     print("Warning: DU_response_computation not found, RF chain functions unavailable")
 
 class CustomDataset(Dataset):
-    def __init__(self, clean_signals, noise_signals, traces_len=512, indices=None, 
-                 no_random=False, swap_prob=0.5, target_start=300, target_end=500, voltage_to_adc=False):
+    def __init__(self, clean_signals, noise_signals, traces_len=512, indices=None,
+                 no_random=False, swap_prob=0.5, target_start=300, target_end=500, voltage_to_adc=False,
+                 eval_len=None):
         """
         Args:
             clean_signals: Array containing clean X, Y, Z microvolt signal components with the shape (3, n_samples, 1024).
@@ -44,6 +45,9 @@ class CustomDataset(Dataset):
         self.noise_signals_list = noise_signals
         self.traces_len = traces_len
         self.no_random = no_random
+        # Length for deterministic (no_random) evaluation crops; None = full trace.
+        # Decouples "no random cropping" from the training crop length (task 2).
+        self.eval_len = eval_len
         self.swap_prob = swap_prob
         self.target_start = target_start
         self.target_end = target_end
@@ -127,12 +131,21 @@ class CustomDataset(Dataset):
     def __getitem__(self, idx):
         actual_idx = self.indices[idx]
 
+        pulse_start = 240
+        pulse_end = 280
+
         if self.no_random:
-            idstart = 0
-            traces_len = self.initial_len
+            # Deterministic evaluation crop: fixed (non-random) window position, so
+            # evaluation is fully reproducible. Length is decoupled from the training
+            # crop via eval_len (default = full trace); a sub-full length uses a fixed
+            # pulse-centered window.
+            traces_len = int(self.eval_len) if self.eval_len is not None else self.initial_len
+            traces_len = min(traces_len, self.initial_len)
+            if traces_len >= self.initial_len:
+                idstart = 0
+            else:
+                idstart = max(0, min(pulse_start - traces_len // 2, self.initial_len - traces_len))
         else:
-            pulse_start = 240
-            pulse_end = 280
             traces_len = self.traces_len
 
             # We want pulse to appear anywhere in the window from position ~50 to ~240
@@ -327,43 +340,24 @@ def psnr_loss(input, target, device='cpu', eps=1e-8):
     
     return -psnr
 
-def multi_domain_mse_loss(clean, pred, mag_weight, phase_weight):
-    # Time domain loss
-    time_loss = F.mse_loss(pred, clean)
-    
-    # Frequency domain components
-    clean_fft = torch.fft.rfft(clean, dim=-1)
-    pred_fft = torch.fft.rfft(pred, dim=-1)
-    
-    # Magnitude loss - preserves energy distribution
-    mag_loss = F.mse_loss(torch.abs(pred_fft), torch.abs(clean_fft))
-    
-    # Phase loss - preserves waveform shape and timing
-    phase_loss = F.mse_loss(torch.angle(pred_fft), torch.angle(clean_fft))
-    
-    # Combined frequency loss
-    freq_loss = mag_weight * mag_loss + phase_weight * phase_loss
-    
-    return time_loss + freq_loss
-
-def multi_domain_l1_loss(clean, pred, mag_weight, phase_weight):
-    # Time domain loss
-    time_loss = F.l1_loss(pred, clean)
-    
-    # Frequency domain components
-    clean_fft = torch.fft.rfft(clean, dim=-1)
-    pred_fft = torch.fft.rfft(pred, dim=-1)
-    
-    # Magnitude loss - preserves energy distribution
-    mag_loss = F.l1_loss(torch.abs(pred_fft), torch.abs(clean_fft))
-    
-    # Phase loss - preserves waveform shape and timing
-    phase_loss = F.l1_loss(torch.angle(pred_fft), torch.angle(clean_fft))
-    
-    # Combined frequency loss
-    freq_loss = mag_weight * mag_loss + phase_weight * phase_loss
-    
-    return time_loss + freq_loss
+# -----------------------------------------------------------------------------
+# Multi-domain (time + Fourier magnitude + Fourier phase) losses.
+#
+# The previous in-file implementations applied L1/MSE directly to
+# ``torch.angle`` of the FFT, which is discontinuous at the +/-pi wrap-around
+# and therefore mis-scores phase errors (referee revision, task 1). They are
+# replaced by the canonical implementations in ``utils/paper_losses_metrics``,
+# which use the wrapped residual  atan2(sin d_phi, cos d_phi)  and add an
+# optional ``phase_weighting`` argument ("none" reproduces the manuscript's
+# unweighted loss; "target_magnitude" down-weights low-magnitude bins).
+#
+# Signatures preserve the (clean, pred, mag_weight, phase_weight) argument
+# order, so existing get_criterion() calls remain valid.
+# -----------------------------------------------------------------------------
+from utils.paper_losses_metrics import (  # noqa: E402,F401
+    multi_domain_l1_loss,
+    multi_domain_mse_loss,
+)
 
 def plot_metrics(epochs, training_losses, validation_losses, validation_psnr, learning_rates, validation_peak_to_peak, save_folder):
     """
@@ -438,9 +432,27 @@ def plot_metrics(epochs, training_losses, validation_losses, validation_psnr, le
     plt.close()
 
 def calculate_snr(clean_array, noisy_array):
-    """Calculate the SNR of a signal."""
-    snr = np.max(clean_array) / np.std(noisy_array)
-    return snr
+    """DEPRECATED (task 3). Full-trace max(clean)/std(noisy) is NOT the paper SNR.
+
+    Use utils.paper_losses_metrics.paper_input_snr instead
+    (max|Hilbert(clean)| / std(noisy off-pulse), channel by channel).
+    Kept only as a thin delegating shim so old callers keep working.
+    """
+    import warnings
+    from utils.paper_losses_metrics import (
+        paper_input_snr, PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH, PRODUCTION_DDOF,
+    )
+    warnings.warn(
+        "calculate_snr is deprecated (task 3); use paper_input_snr.",
+        DeprecationWarning, stacklevel=2,
+    )
+    clean_array = np.asarray(clean_array, dtype=np.float64)
+    noisy_array = np.asarray(noisy_array, dtype=np.float64)
+    return float(paper_input_snr(
+        clean_array[None, :], noisy_array[None, :],
+        exclude_half_width_samples=PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH,
+        ddof=PRODUCTION_DDOF,
+    ).snr[0])
 
 def plot_snr_distribution(noised_signals, clean_signals, save_folder=None):
     """Plot the distribution of SNRs, separated by channel, using different linestyles."""

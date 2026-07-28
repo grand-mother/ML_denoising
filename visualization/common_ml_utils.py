@@ -82,23 +82,27 @@ def load_model_from_files(
 
 
 def compute_snr(clean: np.ndarray, noisy: np.ndarray) -> np.ndarray:
-    """
-    Compute SNR per sample: max(|clean|) / std(noise).
-    
-    Args:
-        clean: (N, C, L) clean waveforms
-        noisy: (N, C, L) noisy waveforms
-    
-    Returns:
-        snr: (N,) SNR values
-    """
-    noise = noisy - clean
-    # Use channel-combined metrics
-    clean_peak = np.max(np.abs(clean), axis=(1, 2))  # (N,)
-    noise_std = np.std(noise, axis=(1, 2))           # (N,)
-    snr = clean_peak / (noise_std + 1e-12)
-    return snr
+    """DEPRECATED (task 3). Channel-combined max(|clean|)/std(noise) is NOT the
+    paper SNR. Delegates to utils.paper_losses_metrics.paper_input_snr, the single
+    canonical definition (max|Hilbert(clean)| / std(noisy off-pulse), per channel).
 
+    Returns per-channel SNR (N, C). The off-pulse exclusion half-width is the
+    PROVISIONAL task-4 value; record it in figure metadata. New code should call
+    paper_input_snr directly.
+    """
+    import warnings
+    from utils.paper_losses_metrics import (
+        paper_input_snr, PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH, PRODUCTION_DDOF,
+    )
+    warnings.warn(
+        "compute_snr is deprecated (task 3); use paper_input_snr directly.",
+        DeprecationWarning, stacklevel=2,
+    )
+    return paper_input_snr(
+        clean, noisy,
+        exclude_half_width_samples=PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH,
+        ddof=PRODUCTION_DDOF,
+    ).snr
 
 def run_inference(
     model: torch.nn.Module,
@@ -195,6 +199,7 @@ def load_data_and_run_inference(
         [noise_signals],
         indices=indices,
         swap_prob=0.0,  # No augmentation for evaluation
+        no_random=True,  # deterministic: no random crop, full 1024 trace
         target_start=120,
         target_end=480,
         voltage_to_adc=True

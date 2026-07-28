@@ -23,6 +23,21 @@ from torch.utils.data import Dataset
 # Import model classes for comparison
 from training.models.cnn import DualBranchAutoencoder
 
+# Revised paper SNR (referee revision): the SNR-binned figures now use
+#   SNR = max|Hilbert(clean)| / std(noisy off-pulse samples)
+# instead of the former full-window max(clean)/std(noisy). The off-pulse
+# exclusion half-width is a stated revision choice (no production value existed).
+# Delegates to the single canonical implementation used everywhere else.
+from utils.referee_revision_utils import paper_input_snr
+_OFFPULSE_EXCLUDE_HW = 64  # samples, +/- around the clean Hilbert-envelope peak
+
+def _offpulse_snr_1d(clean_np, noisy_np):
+    """Revised per-trace SNR for a 1D clean/noisy trace (canonical paper_input_snr)."""
+    return float(paper_input_snr(
+        np.asarray(clean_np)[None, :], np.asarray(noisy_np)[None, :],
+        exclude_half_width_samples=_OFFPULSE_EXCLUDE_HW,
+    ).snr[0])
+
 class CustomDataset(Dataset):
     def __init__(self, noised_signals, clean_signals, indices=None):
         """
@@ -76,20 +91,20 @@ def plot_peak_time_efficiency(snr_vals, clean_time, noisy_time, denoised_time, c
         os.makedirs(save_path, exist_ok=True)
     
     snr_bins = np.linspace(1, 20, 20)  # Adjust as needed
-    thresholds = [10, 20]  # ns
+    thresholds = [10, 20]  # SAMPLES (peak times are sample indices; previously mislabeled "ns"; convert with dt once recovered)
     colors = ['orange', 'blue']
     linestyles = ['-', '--']
 
     plt.figure(figsize=(12, 6))
     fontsize = 16
-    # Denoising efficiency: fraction of denoised traces with |Δt| <= 10 ns
+    # Denoising efficiency: fraction of denoised traces with |Δt| <= 10 samples
     denoising_efficiency = []
     for i in range(len(snr_bins)-1):
         mask = (snr_vals >= snr_bins[i]) & (snr_vals < snr_bins[i+1])
         if np.sum(mask) == 0:
             denoising_efficiency.append(np.nan)
             continue
-        # Denoising efficiency: fraction with |Δt| <= 10 ns
+        # Denoising efficiency: fraction with |Δt| <= 10 samples
         denoising_efficiency.append(np.mean(np.abs(denoised_time[mask] - clean_time[mask]) <= 10))
     plt.step(snr_bins[:-1], denoising_efficiency, where='post', color='k', linewidth=2, label=f'Denoising efficiency - {channel_name}')
 
@@ -103,7 +118,7 @@ def plot_peak_time_efficiency(snr_vals, clean_time, noisy_time, denoised_time, c
                 frac_denoised.append(np.nan)
                 continue
             frac_denoised.append(np.mean(np.abs(denoised_time[mask] - clean_time[mask]) > threshold))
-        plt.step(snr_bins[:-1], frac_denoised, where='post', color=colors[idx], linestyle='-', label=fr'$\Delta t_{{peak}} > {threshold}$ns, denoised')
+        plt.step(snr_bins[:-1], frac_denoised, where='post', color=colors[idx], linestyle='-', label=fr'$\Delta t_{{peak}} > {threshold}$ samples, denoised')
 
         # Noisy (dashed)
         frac_noisy = []
@@ -113,7 +128,7 @@ def plot_peak_time_efficiency(snr_vals, clean_time, noisy_time, denoised_time, c
                 frac_noisy.append(np.nan)
                 continue
             frac_noisy.append(np.mean(np.abs(noisy_time[mask] - clean_time[mask]) > threshold))
-        plt.step(snr_bins[:-1], frac_noisy, where='post', color=colors[idx], linestyle='--', label=fr'$\Delta t_{{peak}} > {threshold}$ns, noisy')
+        plt.step(snr_bins[:-1], frac_noisy, where='post', color=colors[idx], linestyle='--', label=fr'$\Delta t_{{peak}} > {threshold}$ samples, noisy')
 
     plt.xlabel('Signal-to-Noise ratio (SNR)', fontsize=fontsize)
     plt.ylabel('Fraction', fontsize=fontsize)
@@ -160,7 +175,7 @@ def peak_time_analysis(dataloader,
                     timing = np.arange(clean_np.size)
                     
                     if np.std(noisy_np) != 0:
-                        snr = np.max(clean_np) / np.std(noisy_np)
+                        snr = _offpulse_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
                     
@@ -303,7 +318,7 @@ def peak_amplitude_analysis(dataloader,
                     denoised_np = denoised_output[i, idx].cpu().numpy()
                     
                     if np.std(noisy_np) != 0:
-                        snr = np.max(clean_np) / np.std(noisy_np)
+                        snr = _offpulse_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
 
@@ -373,7 +388,7 @@ def traces_plot(testloader,
                     
                     # Calculate SNR
                     if np.std(noisy_np) != 0:
-                        snr = np.max(clean_np) / np.std(noisy_np)
+                        snr = _offpulse_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
                     
@@ -634,7 +649,7 @@ def peak_amplitude_analysis_all_channels(dataloader,
                     denoised_np = denoised_output[i, idx].cpu().numpy()
                     
                     if np.std(noisy_np) != 0:
-                        snr = np.max(clean_np) / np.std(noisy_np)
+                        snr = _offpulse_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
 
@@ -715,7 +730,7 @@ def traces_plot_time_frequency(testloader,
                     
                     # Calculate SNR
                     if np.std(noisy_np) != 0:
-                        snr = np.max(clean_np) / np.std(noisy_np)
+                        snr = _offpulse_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
                     
@@ -991,7 +1006,7 @@ def plot_peak_time_efficiency_combined(
             where="post",
             color="black",
             linewidth=3,
-            label=fr"Denoised: $|\Delta t_{{peak}}| \leq {timing_thresholds[0]}$ ns",
+            label=fr"Denoised: $|\Delta t_{{peak}}| \leq {timing_thresholds[0]}$ samples",
         )
 
         # For each threshold: show fraction exceeding threshold for denoised (orange) and noisy (red dashed)
@@ -1016,7 +1031,7 @@ def plot_peak_time_efficiency_combined(
                 color="orange",
                 linestyle="-",
                 linewidth=2.5,
-                label=fr"Denoised: $|\Delta t_{{peak}}| > {timing_thresholds[idx]}$ ns",
+                label=fr"Denoised: $|\Delta t_{{peak}}| > {timing_thresholds[idx]}$ samples",
             )
             ax.step(
                 snr_bins[:-1],
@@ -1025,7 +1040,7 @@ def plot_peak_time_efficiency_combined(
                 color="red",
                 linestyle="--",
                 linewidth=2,
-                label=fr"Noisy: $|\Delta t_{{peak}}| > {timing_thresholds[idx]}$ ns",
+                label=fr"Noisy: $|\Delta t_{{peak}}| > {timing_thresholds[idx]}$ samples",
             )
 
         ax.axhline(y=0.95, color="gray", linestyle="--", linewidth=1.5, alpha=0.7, label="95% threshold")
@@ -1221,7 +1236,7 @@ def plot_peak_time_efficiency_for_hilbert_filter(dataloader,
                 timing = np.arange(clean_np.size)
                 
                 if np.std(noisy_np) != 0:
-                    snr = np.max(clean_np) / np.std(noisy_np)
+                    snr = _offpulse_snr_1d(clean_np, noisy_np)
                 else:
                     snr = float('inf')
                     
@@ -1350,7 +1365,7 @@ def plot_peak_time_efficiency_comparison(snr_values_models, peak_times_models, c
     linestyles = {'DualBranchCNN': '-', 'SingleBranchCNN': '--'}
     
     snr_bins = np.linspace(1, 20, 20)
-    thresholds = [10, 20]  # ns
+    thresholds = [10, 20]  # SAMPLES (peak times are sample indices; previously mislabeled "ns"; convert with dt once recovered)
     threshold_colors = ['orange', 'green']
     
     for model_name in ['DualBranchCNN', 'SingleBranchCNN']:
@@ -1359,7 +1374,7 @@ def plot_peak_time_efficiency_comparison(snr_values_models, peak_times_models, c
         noisy_time = np.array(peak_times_models[model_name][channel]['Noisy'])  
         denoised_time = np.array(peak_times_models[model_name][channel]['Denoised'])
         
-        # Denoising efficiency: fraction of denoised traces with |Δt| <= 10 ns
+        # Denoising efficiency: fraction of denoised traces with |Δt| <= 10 samples
         denoising_efficiency = []
         for i in range(len(snr_bins)-1):
             mask = (snr_vals >= snr_bins[i]) & (snr_vals < snr_bins[i+1])
@@ -1387,7 +1402,7 @@ def plot_peak_time_efficiency_comparison(snr_values_models, peak_times_models, c
             plt.step(snr_bins[:-1], frac_denoised, where='post', 
                     color=threshold_colors[idx], linestyle=linestyles[model_name], 
                     alpha=0.7, linewidth=2,
-                    label=fr'{model_name} - $\Delta t_{{peak}} > {threshold}$ns')
+                    label=fr'{model_name} - $\Delta t_{{peak}} > {threshold}$ samples')
 
     plt.xlabel('Signal-to-Noise ratio (SNR)', fontsize=fontsize)
     plt.ylabel('Fraction', fontsize=fontsize)
@@ -1531,7 +1546,7 @@ def model_comparison_analysis(dataloader,
                     noisy_np = noisy_data[i, idx].cpu().numpy()
                     
                     if np.std(noisy_np) != 0:
-                        snr = np.max(clean_np) / np.std(noisy_np)
+                        snr = _offpulse_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
                     
@@ -1689,7 +1704,7 @@ def traces_plot_comparison(testloader,
                     
                     # Calculate SNR
                     if np.std(noisy_np) != 0:
-                        snr = np.max(clean_np) / np.std(noisy_np)
+                        snr = _offpulse_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
                     
@@ -1794,3 +1809,108 @@ def traces_plot_comparison(testloader,
                 break
     
     print('Traces comparison completed')
+def ablation_peak_time_efficiency_comparison(
+    dataloader,
+    model_dual,
+    model_time,
+    device: str = "cpu",
+    min_snr: float = 1.0,
+    max_snr: float = 15.0,
+    snr_bins_count: int = 14,
+    dt_ns: float = 2.0,
+    time_tolerance_ns: float = 10.0,
+    save_path: str = "",
+):
+    """
+    Compares the peak time efficiency of two models (e.g., DualBranch vs TimeOnly)
+    using the rigorous Hilbert envelope method.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import torch
+    from scipy.signal import hilbert
+    import os
+
+    model_dual.eval()
+    model_time.eval()
+    
+    # Store errors and SNRs
+    # Structure: { channel_idx: {"snr": [], "dual_err": [], "time_err": []} }
+    results = {0: {"snr": [], "dual_err": [], "time_err": []},
+               1: {"snr": [], "dual_err": [], "time_err": []},
+               2: {"snr": [], "dual_err": [], "time_err": []}}
+
+    with torch.no_grad():
+        for noisy_data, clean_data in dataloader:
+            noisy_data = noisy_data.to(device)
+            clean_data = clean_data.to(device)
+            
+            dual_output = model_dual(noisy_data)
+            time_output = model_time(noisy_data)
+
+            batch_size = noisy_data.size(0)
+            for i in range(batch_size):
+                for ch in range(3):
+                    clean_np = clean_data[i, ch].cpu().numpy()
+                    noisy_np = noisy_data[i, ch].cpu().numpy()
+                    dual_np = dual_output[i, ch].cpu().numpy()
+                    time_np = time_output[i, ch].cpu().numpy()
+
+                    denom = np.std(noisy_np)
+                    snr = (np.max(clean_np) / denom) if denom != 0 else float("inf")
+
+                    if min_snr <= snr <= max_snr:
+                        env_clean = np.abs(hilbert(clean_np))
+                        env_dual = np.abs(hilbert(dual_np))
+                        env_time = np.abs(hilbert(time_np))
+
+                        peak_clean = np.argmax(env_clean) * dt_ns
+                        peak_dual = np.argmax(env_dual) * dt_ns
+                        peak_time = np.argmax(env_time) * dt_ns
+
+                        results[ch]["snr"].append(snr)
+                        results[ch]["dual_err"].append(np.abs(peak_dual - peak_clean))
+                        results[ch]["time_err"].append(np.abs(peak_time - peak_clean))
+
+    # Plotting
+    plt.figure(figsize=(18, 5))
+    snr_bins = np.linspace(min_snr, max_snr, snr_bins_count + 1)
+    channels = ["X Channel", "Y Channel", "Z Channel"]
+
+    for ch in range(3):
+        plt.subplot(1, 3, ch + 1)
+        
+        snr_arr = np.array(results[ch]["snr"])
+        dual_err_arr = np.array(results[ch]["dual_err"])
+        time_err_arr = np.array(results[ch]["time_err"])
+        
+        dual_eff = []
+        time_eff = []
+        
+        for i in range(len(snr_bins) - 1):
+            mask = (snr_arr >= snr_bins[i]) & (snr_arr < snr_bins[i+1])
+            if np.sum(mask) == 0:
+                dual_eff.append(np.nan)
+                time_eff.append(np.nan)
+            else:
+                dual_eff.append(np.mean(dual_err_arr[mask] <= time_tolerance_ns))
+                time_eff.append(np.mean(time_err_arr[mask] <= time_tolerance_ns))
+                
+        plt.step(snr_bins[:-1], dual_eff, where='post', label='DualBranch', color='k', linewidth=2.5)
+        plt.step(snr_bins[:-1], time_eff, where='post', label='TimeOnly', color='C1', linewidth=2.5, linestyle='--')
+        
+        plt.xlabel('Signal-to-Noise Ratio (SNR)', fontsize=14)
+        if ch == 0:
+            plt.ylabel(f'Denoising Efficiency ($|\\Delta t| \\leq {time_tolerance_ns}$ samples)', fontsize=14)
+        plt.title(f'Peak Time Efficiency - {channels[ch]}', fontsize=14)
+        plt.legend(fontsize=12)
+        plt.grid(True, alpha=0.3)
+        plt.ylim(0, 1.05)
+        plt.xlim(min_snr, max_snr)
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+        print(f"Saved comparison plot to {save_path}")
+    plt.show()
+

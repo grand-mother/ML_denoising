@@ -1,0 +1,35 @@
+{
+  "analysis_band": {
+    "absolute_phase_l1_change": 0.49032886470350534,
+    "boundary_count": 1025574,
+    "boundary_fraction": 0.21344606968100283,
+    "coefficient_count": 4804839,
+    "direct_phase_l1": 1.8468636896249282,
+    "phase_weight": 0.023580860891914208,
+    "relative_phase_l1_change": 0.26549272014930575,
+    "weighted_objective_change": 0.011562376749863582,
+    "wrapped_phase_l1": 1.3565348249214229
+  },
+  "full_band": {
+    "absolute_phase_l1_change": 0.41380241690353103,
+    "boundary_count": 5477591,
+    "boundary_fraction": 0.17299846314224357,
+    "coefficient_count": 31662657,
+    "direct_phase_l1": 1.5216220515404788,
+    "phase_weight": 0.023580860891914208,
+    "relative_phase_l1_change": 0.2719482255692868,
+    "weighted_objective_change": 0.009757817229740054,
+    "wrapped_phase_l1": 1.1078196346369478
+  },
+  "metadata": {
+    "checkpoint": "/sps/grand/macias/Sam_Result/multi_l1_CNN_100epochs_24samples/best_model.pth",
+    "criterion": "multi_l1",
+    "evaluation_manifest": "/pbs/home/o/omacias/Sam_project/raytune_lib_final/results/phase_boundary_audit/evaluation_manifest.npz",
+    "manifest_provenance": "post-hoc common evaluation; original production indices unavailable",
+    "n_valid_traces": 41067,
+    "note_trace_length_and_dt": "PROVISIONAL pending the task-1 production-config audit",
+    "phase_weight": 0.023580860891914208,
+    "sample_spacing_seconds": 5e-10,
+    "trace_length": 512
+  }
+}

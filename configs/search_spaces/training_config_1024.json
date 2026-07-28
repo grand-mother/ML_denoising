@@ -1,0 +1,44 @@
+{
+    "lr": {
+        "type": "loguniform",
+        "min": 1e-6,
+        "max": 1e-4
+    },
+    "max_lr": {
+        "type": "loguniform", 
+        "min": 1e-5,
+        "max": 1e-3
+    },
+    "step_size": {
+        "type": "choice",
+        "values": [10000, 20000, 30000, 40000, 50000]
+    },
+    "lr_mode": {
+        "type": "choice",
+        "values": ["triangular2", "triangular"]
+    },
+    "weight_decay": {
+        "type": "loguniform",
+        "min": 1e-5,
+        "max": 5e-3
+    },
+    "batch_size": {
+        "type": "choice",
+        "values": [512, 1024, 2048]
+    },
+    "mag_weight": {
+        "type": "loguniform",
+        "min": 1e-2,
+        "max": 1.0
+    },
+    "phase_weight": {
+        "type": "loguniform",
+        "min": 1e-2,
+        "max": 1.0
+    },
+    "stft_weight": {
+        "type": "loguniform",
+        "min": 1e-2,
+        "max": 1.0
+    }
+}

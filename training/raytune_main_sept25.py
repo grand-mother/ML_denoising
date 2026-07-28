@@ -29,8 +29,9 @@ from training.raytune_train_sept25 import train_validate
 
 # Utils imports
 from utils.data_preprocessing import produce_noise_and_noiseless_data
-from utils.config_utils import (load_json_config, convert_to_tune_config, 
+from utils.config_utils import (load_json_config, convert_to_tune_config,
                                 save_best_trial_results, save_detailed_metrics)
+from utils.paper_losses_metrics import deterministic_split_indices, save_split_manifest
 
 # Default config paths (relative to project root)
 DEFAULT_MODEL_CONFIG = ROOT_DIR / "configs" / "model_config.json"
@@ -60,8 +61,23 @@ def main(all_params):
     print(f'total_sample_train = {total_samples_train}')
     print(f'total_noise_samples = {total_noise_samples}')
     
-    _, _, test_indices = split_indices(total_samples_train, train_frac=0.8, valid_frac=0.1)
-    test_dataset = CustomDataset(clean_signals, [noise_signals], indices=test_indices)
+    # --- Task 2: one frozen, seeded 80/10/10 split, reused by every Ray trial. ---
+    # The split is created ONCE here (not per trial) and persisted; the test
+    # indices are loaded from this manifest and never regenerated.
+    split_seed = int(all_params.get("split_seed", 12345))
+    train_indices, valid_indices, test_indices = deterministic_split_indices(
+        total_samples_train, train_fraction=0.8, valid_fraction=0.1, seed=split_seed)
+    save_split_manifest(
+        Path(output_path) / "split_manifest.npz",
+        train_indices, valid_indices, test_indices,
+        n_total=total_samples_train, seed=split_seed)
+    print(f"Frozen split (seed={split_seed}): "
+          f"train={train_indices.size} valid={valid_indices.size} test={test_indices.size}")
+
+    # Deterministic evaluation: no trace swapping AND no random cropping
+    # (no_random=True -> fixed full-length 1024 trace).
+    test_dataset = CustomDataset(clean_signals, [noise_signals], indices=test_indices,
+                                 swap_prob=0.0, no_random=True)
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, pin_memory=True)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -107,10 +123,9 @@ def main(all_params):
 
     ray.init(
         ignore_reinit_error=True,
-        # local_mode=True,  # This is crucial - single process mode
         include_dashboard=False,
-        num_cpus=12,
-        num_gpus=4
+        num_cpus=int(os.environ.get("RAY_NUM_CPUS", 4)),
+        num_gpus=int(os.environ.get("RAY_NUM_GPUS", 1))
     )
 
 
@@ -125,6 +140,9 @@ def main(all_params):
     # scheduler = tune.schedulers.FIFOScheduler()
     clean_signals_ref = ray.put(clean_signals)
     noise_signals_ref = ray.put(noise_signals)
+    # Share the single frozen split with every trial via the object store.
+    train_indices_ref = ray.put(train_indices)
+    valid_indices_ref = ray.put(valid_indices)
 
     def train_validate_wrapper(config):
         print("=== train_validate_wrapper called ===")
@@ -137,16 +155,20 @@ def main(all_params):
 
             print("=== Data loaded from Ray object store ===")
 
-            train_indices, valid_indices, test_indices = split_indices(total_samples_train, train_frac=0.8, valid_frac=0.1)
+            # Task 2: reuse the ONE frozen split (do not re-split per trial).
+            train_indices = ray.get(train_indices_ref)
+            valid_indices = ray.get(valid_indices_ref)
     
             # Create datasets and loaders
-            train_dataset = CustomDataset(clean_signals, [noise_signals], indices=train_indices)
-            valid_dataset = CustomDataset(clean_signals, [noise_signals], indices=valid_indices)
+            train_dataset = CustomDataset(clean_signals, [noise_signals], indices=train_indices, no_random=True)
+            # Deterministic validation: no swap, no random crop (fixed full 1024 trace).
+            valid_dataset = CustomDataset(clean_signals, [noise_signals], indices=valid_indices,
+                                          swap_prob=0.0, no_random=True)
             
             print("=== Datasets created ===")
             
             train_loader = DataLoader(train_dataset, batch_size=config.get("batch_size", 1024), shuffle=True, pin_memory=True)
-            valid_loader = DataLoader(valid_dataset, batch_size=config.get("batch_size", 1024), shuffle=True, pin_memory=True)
+            valid_loader = DataLoader(valid_dataset, batch_size=config.get("batch_size", 1024), shuffle=False, pin_memory=True)
             
             print("=== DataLoaders created ===")
             print(f"Train loader size: {len(train_loader)}")
@@ -192,8 +214,11 @@ def main(all_params):
     # Create the model FIRST based on the best trial config
     if model_type == "CNN":
         best_train_model = CNN(best_trial.config["model_config"])
+    elif model_type == "TimeOnlyCNN":
+        from training.models.cnn import TimeOnlyAutoencoder
+        best_train_model = TimeOnlyAutoencoder(best_trial.config["model_config"])
     else:
-        raise ValueError("Unknown model_type: {}. Only 'CNN' (DualBranchAutoencoder) is supported.".format(model_type))
+        raise ValueError("Unknown model_type: {}. Only 'CNN' or 'TimeOnlyCNN' are supported.".format(model_type))
 
     # THEN load the checkpoint and get metrics
     best_checkpoint = result.get_best_checkpoint(trial=best_trial, mode="min", metric="validation_loss")

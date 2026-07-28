@@ -1,0 +1,28 @@
+{
+  "model_type": "CNN",
+  "model_config": {
+    "time_branch": {
+      "conv_channels": 128,
+      "res_channels": [
+        128,
+        256
+      ]
+    },
+    "freq_branch": {
+      "conv_channels": 128,
+      "res_channels": [
+        128,
+        256
+      ]
+    },
+    "decoder_channels": [
+      256,
+      128,
+      64,
+      3
+    ]
+  },
+  "weighting": "target_magnitude",
+  "phase_weight": 0.023580860891914208,
+  "mag_weight": 0.019268098921250677
+}

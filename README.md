@@ -80,7 +80,7 @@ sbatch run_training.sh
 
 Or directly:
 ```bash
-python training/raytune_main_sept25.py --json_params_file configs/training_params.json
+python training/raytune_main_sept25.py --json_params_file configs/experiments/training_params.json
 ```
 
 ### Visualization
@@ -131,7 +131,7 @@ Generated plots are saved to the `output/` directory.
 
 ## ⚙️ Configuration
 
-See `configs/README_config.md` for detailed configuration documentation.
+See `configs/search_spaces/README_config.md` for detailed configuration documentation.
 
 ### Key Parameters
 

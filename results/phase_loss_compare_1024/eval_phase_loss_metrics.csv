@@ -1,0 +1,3 @@
+weighting,phase_weight,psnr_db,time_mse,time_l1,mag_spec_l1,power_spec_relerr,phase_err_unw,phase_err_magweighted,amp_bias_median,amp_bias_median_lowsnr,timing_pass_frac,timing_pass_frac_lowsnr
+target_magnitude,0.023580860891914208,33.6136,392206,10.0955,695.751,0.188491,1.21219,0.913418,-0.2732,-0.131583,0.540515,0.927478
+none,0.023580860891914208,33.5812,402621,10.1431,697.468,0.189021,1.20834,0.915282,-0.279598,-0.135573,0.540312,0.92625

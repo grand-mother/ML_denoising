@@ -1,0 +1,48 @@
+{
+    "DualBranch": {
+        "use_freq_branch": true,
+        "time_branch": {
+            "conv_channels": 32,
+            "res_channels": [
+                128,
+                256
+            ]
+        },
+        "freq_branch": {
+            "conv_channels": 16,
+            "res_channels": [
+                128,
+                256
+            ]
+        },
+        "decoder_channels": [
+            128,
+            64,
+            32,
+            3
+        ]
+    },
+    "TimeOnly": {
+        "use_freq_branch": false,
+        "time_branch": {
+            "conv_channels": 64,
+            "res_channels": [
+                256,
+                512
+            ]
+        },
+        "freq_branch": {
+            "conv_channels": 16,
+            "res_channels": [
+                128,
+                256
+            ]
+        },
+        "decoder_channels": [
+            128,
+            64,
+            32,
+            3
+        ]
+    }
+}

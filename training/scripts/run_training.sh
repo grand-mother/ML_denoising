@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=dualautoencoder        # Job name
 #SBATCH --partition=gpucluster            # Partition name
-#SBATCH --time=18:00:00                   # Time limit hrs:min:sec
+#SBATCH --time=48:00:00                   # Time limit hrs:min:sec
 #SBATCH --output=dualautoencoder_%j.out   # Standard output and error log
 #SBATCH --ntasks=1                       # Number of tasks
 #SBATCH --gres=gpu:v100:4
@@ -36,7 +36,7 @@ export PYTHONPATH=$PROJECT_ROOT
 cd $PROJECT_ROOT/raytune_lib_final
 
 # Run training with configuration file
-srun --partition=gpucluster python training/raytune_main_sept25.py --json_params_file 'configs/training_params.json'
+srun --partition=gpucluster python training/raytune_main_sept25.py --json_params_file 'configs/experiments/training_params.json'
 
 
 # Deactivate the conda environment
