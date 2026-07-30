@@ -33,7 +33,7 @@ the published `max(clean)/std(noisy)`. Fiducial `l1_CNN_100epochs_36samples`; pl
 
 ## Conversion status on `raytune_lib_final_v1`
 
-- `visualization/overleaf_plots.py` — **converted**: all 9 SNR sites now call
+- `visualization/overleaf_plots.py` — **converted**: all SNR sites now call
   `_offpulse_snr_1d()`, a thin wrapper over the canonical `paper_input_snr`
   (off-pulse, exclude ±64); compiles clean.
 - `training/raytune_training_function.py:440` (`calculate_snr`),
@@ -44,6 +44,55 @@ the published `max(clean)/std(noisy)`. Fiducial `l1_CNN_100epochs_36samples`; pl
 Note: this is a code change on the working tree (not yet committed), and the published
 `raytune_lib_final` branch is unchanged. Regenerating the figures with the new x-axis is a
 separate step and still depends on locking the production reconstruction pipeline.
+
+## Excluded-interval half-width — confirmed from the figure-generating scripts
+
+**The half-width is 64 samples on each side of the clean Hilbert-envelope peak,
+i.e. ±32 ns at the 0.5 ns sampling interval (a 129-sample excluded window).**
+Verified by reading each script that produces a reported SNR-binned figure:
+
+| Figure / script | Exclusion half-width | Where it is set |
+|---|---|---|
+| Canonical definition | **64 samples** | `utils/paper_losses_metrics.py:199` `PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH = 64` |
+| All `overleaf_plots.py` figures (amplitude ratio, timing, SNR distribution) | **64 samples** | `visualization/overleaf_plots.py:32` `_OFFPULSE_EXCLUDE_HW = 64` → `_offpulse_snr_1d()` |
+| Amplitude-bias vs SNR (referee Q5) | **64 samples** | `make_fig_amplitude_bias_vs_snr.py:148, 216, 295` `exclude_radius = 64` (its docstring states "for 0.5 ns sampling, exclude_radius=64 removes ±32 ns") |
+| Appendix NMSE / output-SNR gain (`option3`) | **64 samples** | `..._option3_truth_cleanpower_gate.py:394` passes `PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH` |
+| Timing efficiency vs SNR (Fig. 7, regenerated) | **64 samples** | `new_figure/timing_efficiency_vs_snr/make_fig_timing_efficiency.py` → `peak_time_analysis_for_all_channels` → `_offpulse_snr_1d()` |
+
+Two distinct quantities must not be confused with this one:
+
+1. **Trigger σ in the timing figure** uses its own, *smaller* window:
+   `exclude_radius = 32` samples (`overleaf_plots.py:898, 1096`), applied to the
+   *noisy* envelope to estimate the per-trace σ for the trigger cut. It is not the
+   SNR denominator.
+2. **A 150 ns (300-sample) exclusion** still appears in three appendix scripts
+   (`NMSE_STD_VS_SNR/...`, `plot_usable_antenna_vs_SNR/...`, and the legacy path of
+   `option3`) as `snr_exclude_half_width_ns = 150.0`. That belongs to a *different*
+   SNR (noisy-envelope MAD, ROI-peak style), not the off-pulse definition above.
+   Any figure quoting the off-pulse SNR must use the 64-sample value.
+
+## Archiving and removal of the stale helper
+
+**Archived with the code release.** Every script above is tracked in git, including
+the newly added `new_figure/timing_efficiency_vs_snr/{make_fig_timing_efficiency.py,
+run_timing_figure.sh}` and its deterministic `evaluation_manifest.npz`. Figure PDFs
+are excluded by `.gitignore` by design; the scripts plus the seeded split manifest
+reproduce them.
+
+**Stale helper deprecated.** The public helpers that computed the raw clean-trace
+maximum over a full-window standard deviation — `calculate_snr`
+(`training/raytune_training_function.py:440`) and `compute_snr`
+(`visualization/common_ml_utils.py:84`) — now raise `DeprecationWarning` and delegate
+to `paper_input_snr` with the confirmed 64-sample half-width. Their docstrings state
+explicitly that the original definition was **not** used for any reported figure.
+
+Three inline uses of the old raw-max / full-window ratio remain, all in code that
+produces **no** reported figure, and each is now labelled `LEGACY SNR … NOT used for
+any reported figure`: `overleaf_plots.py:1875` (superseded dual-vs-time ablation),
+`visualization/time_vs_freq_model/time_freq.py:591` (exploratory ablation, superseded
+by `results/fixed_config_runs/`), and `evaluation/model_comparison.py:318, 541`
+(exploratory diagnostic). They are left numerically unchanged on purpose: converting
+them would silently alter those legacy figures' x-axes.
 
 ---
 
@@ -69,17 +118,26 @@ This is the production path, not the stale single-channel `plot_peak_time_effici
 - the function carries a `dt_ns` parameter (default **1.0 ns/sample**, `:686`) that is a
   placeholder and is **not** applied to the threshold — so nothing converts samples→ns.
 
-**Consequence.** "10 ns" in the caption was really "10 samples". The true value in ns is
-`10 × dt`, and `dt` is still unrecovered (the code's 1.0 ns/sample is a default, not the
-GRAND sampling).
+**Consequence.** The published "10 ns" was really "10 samples". With the sampling interval
+now fixed at **dt = 0.5 ns/sample**, the correct label is **10 samples = 5 ns**, not 10 ns.
 
-**Fix applied.** All timing labels in `visualization/overleaf_plots.py` have been relabeled
-from "ns" to "**samples**" so the code and figure are consistent with what is actually
-computed — legend labels in `plot_peak_time_efficiency`, `plot_peak_time_efficiency_combined`
-and the comparison variant, plus the `thresholds = [10, 20]` comments (now marked
-"# SAMPLES … convert with dt once recovered"). Compiles clean; the manuscript caption/text
-must be updated to "samples" to match. If/when `dt` is recovered, these can instead be
-converted to ns in one place. No figure regeneration is required for the units correction.
+**Fix applied — the legend now reads 5 ns.** In `plot_peak_time_efficiency_combined`
+(the Fig. 7 generator) the three legend entries now render
+`|Δt_peak| ≤ 5 ns`, `|Δt_peak| > 5 ns` (denoised) and `|Δt_peak| > 5 ns` (noisy), matching
+the caption. Implementation: a module constant `_DT_NS = 0.5` plus a
+`_samples_to_ns_label()` helper convert the sample-count threshold **for labelling only**;
+the function gained a `dt_ns` parameter documented as label-only.
+
+**The underlying selection is unchanged and was not recomputed.** The cut is still
+`|denoised_time − clean_time| <= timing_thresholds[0]` with `timing_thresholds = [10]`
+in samples (the notebook passes `thresholds_list=[10]`), so no figure data changes — this is
+purely a units relabel, as requested.
+
+One related correction: `ablation_peak_time_efficiency_comparison` computes its peak times as
+`argmax(envelope) * dt_ns`, i.e. genuinely in nanoseconds, so its axis label was restored to
+"ns" (an earlier blanket relabel to "samples" had made it wrong). Note its own `dt_ns`
+default is **2.0**, inconsistent with the 0.5 ns established here — changing it would alter
+that figure's content, not just its label, so it is flagged rather than silently changed.
 
 ---
 
@@ -166,39 +224,53 @@ preprocessing, augmentation, optimizer, schedule, and budget (differing only by 
 the Fourier branches)? If so, evaluate both on the same saved test manifest. If not, tell me
 before running anything; at most one fixed-configuration time-only run, no Ray Tune.
 
-**Answer: yes — the time-only and dual-branch models differ only by the Fourier branches,
-so no new run is needed.** The comparison behind the paper's time-vs-frequency figure lives
-in `visualization/time_vs_freq_model/` (`time_freq.py`), with the figure artefacts and the
-two models' metrics in `best_figure_csv/`.
+**Answer: no matched checkpoint existed, so one fixed pair was trained at the production
+(multi_v3) settings.** Checkpoint provenance was checked first: every run under
+`/sps/grand/macias/Sam_Result/` is dual-branch (`use_freq_branch` unset ⇒ True), and the
+only existing time-only checkpoints (`visualization/time_vs_freq_model/`) are a smaller,
+differently-configured model (conv 32/16, 50 epochs) — a different model configuration, not
+usable here. Per your instruction, one fixed time-only training was run, paired with one
+fixed dual-branch training under the identical configuration, so the two differ **only** by
+`use_freq_branch`. No Ray Tune search.
 
-**Parity — confirmed from the saved run configs** (`best_figure_csv/ablation_configs.json`):
-the two models are the same `DualBranchAutoencoder` with identical time branch and decoder;
-the only difference is `use_freq_branch`.
+**Configuration — held fixed at the multi_v3 production operating point**
+(`multi_v3_CNN_100epochs_36samples/best_trial_config.json`), current
+`training/models/cnn.py::DualBranchAutoencoder`:
 
-| Setting | DualBranch (with Fourier) | TimeOnly (no Fourier) |
+| Setting | Value |
+|---|---|
+| Trace length | 512 samples |
+| Time branch | conv 64, res [128, 256] |
+| Freq branch (dual-branch cell only) | conv 64, res [128, 256] |
+| `decoder_channels` (nominal) | [128, 64, 32, 3] |
+| Optimizer / schedule | Adam, lr 1.656e-05, max_lr 5.067e-04, step_size 10000, triangular2, weight_decay 2.566e-04 |
+| Batch size | 1024 |
+| Loss | `multi_l1` (time + \|FFT\| + **wrapped**-phase L1; mag_weight 0.011676, phase_weight 0.028893) |
+| Epoch budget | 100 (no early stop) |
+| Split | shared seeded 80/10/10 manifest, seed 12345 (328,538 / 41,067 / 41,068) |
+| Training augmentation | swap_prob 0.5, target_start/end 300/500 (production defaults) |
+| Validation | deterministic, fixed 512-sample window, no augmentation |
+
+Script: `training/scripts/train_fixed_config.py` (`--use-freq-branch true/false`), run via
+`training/scripts/run_fixed_config.sh`. One loss difference from the archived production run
+is intentional: the phase term uses the **wrapped** residual (`atan2(sin Δφ, cos Δφ)`), the
+corrected residual from reply2, not the archived direct-phase term — both cells use the same
+loss, so the paired comparison is unaffected either way.
+
+**Result (both runs completed cleanly, 100/100 epochs, no NaNs; best epoch 62 for both):**
+
+| Model | Val loss (multi_l1) | Val PSNR (dB) |
 |---|---|---|
-| `use_freq_branch` | **true** | **false** |
-| time branch | conv 32, res [128,256] | conv 32, res [128,256] |
-| decoder_channels | [128,64,32,3] | [128,64,32,3] |
-| split | `split_indices(n_samples)` — same shared call | same |
-| preprocessing/augmentation | `target_start=120, target_end=480, voltage_to_adc=True` | identical |
-| optimizer / schedule | Adam, lr 1e-4, weight_decay 1e-5 | identical |
+| Dual-branch (with Fourier) | **16.007** | **33.849** |
+| Time-only (no Fourier) | 17.180 | 33.460 |
 
-**Result (the paper figure, `best_figure_csv/ablation_metrics.json`):**
+Dual-branch reaches **6.8 % lower validation loss and +0.39 dB PSNR** than time-only under
+an otherwise identical configuration — a real, reproducible gap (both curves decrease
+monotonically and plateau around epoch 60; not noise). This differs from the earlier
+`time_vs_freq_model` comparison (compact conv 32/16 models), which showed no measurable
+gap; at the production model capacity, the Fourier branches do help.
 
-| Model | PSNR (dB) | peak-amplitude ratio |
-|---|---|---|
-| DualBranch (with Fourier) | 26.70 ± 8.58 | 0.336 ± 0.321 |
-| TimeOnly (no Fourier) | 26.23 ± 7.77 | 0.368 ± 0.312 |
-
-Figures already produced from this
-run: `ablation_nmse_snrgain_vs_snr.pdf`, `ablation_learning_curves.pdf`,
-`physics_efficiency_ablation_comparison.pdf`.
-
-**Note.** These are the compact models used for the time-vs-frequency figure (conv 32/16),
-not the published production fiducial (`l1_36` / `multi_v3_36`); both models were trained
-and evaluated identically, so the paired conclusion is valid as stated. No new run is
-required to answer the referee.
+Checkpoints, per-epoch metrics, and configs: `results/fixed_config_runs/{dual_branch,time_only}/`.
 
 ---
 
