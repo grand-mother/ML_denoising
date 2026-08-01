@@ -1,0 +1,76 @@
+{
+  "checkpoint_path": "/sps/grand/macias/Sam_Result/multi_v3_CNN_100epochs_36samples/best_model.pth",
+  "config_json": "/sps/grand/macias/Sam_Result/multi_v3_CNN_100epochs_36samples/best_trial_config.json",
+  "metrics_json": "/sps/grand/macias/Sam_Result/multi_v3_CNN_100epochs_36samples/best_trial_metrics.json",
+  "criterion": "multi_v3",
+  "model_type": "CNN",
+  "model_config": {
+    "time_branch": {
+      "conv_channels": 64,
+      "res_channels": [
+        128,
+        256
+      ]
+    },
+    "freq_branch": {
+      "conv_channels": 64,
+      "res_channels": [
+        128,
+        256
+      ]
+    },
+    "decoder_channels": [
+      128,
+      64,
+      32,
+      3
+    ]
+  },
+  "checkpoint_metrics": {
+    "validation_loss": 0.19997188630627422,
+    "validation_psnr": 66.53417800700015,
+    "training_loss": null,
+    "epoch": null,
+    "model_type": "CNN",
+    "trial_id": "ce8f7_00029",
+    "local_path": "/tmp/ray/session_2025-10-28_03-11-16_161685_3786033/artifacts/2025-10-28_03-14-17/train_validate_wrapper_2025-10-28_03-14-17/driver_artifacts/train_validate_wrapper_ce8f7_00029_29_batch_size=1024,lr=0.0000,lr_mode=triangular2,mag_weight=0.0117,max_lr=0.0005,decoder_channe_2025-10-28_03-14-18"
+  },
+  "input_length_samples": 512,
+  "evaluated_trace_shape": [
+    41068,
+    3,
+    512
+  ],
+  "data_path": "/sps/grand/blevy/sims/sims_for_denoising_sept2025",
+  "test_split": {
+    "seed": 12345,
+    "fractions": {
+      "train": 0.8,
+      "valid": 0.1,
+      "test": 0.1
+    },
+    "manifest": "/pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/peak_amplitude_bias/evaluation_manifest.npz",
+    "n_traces_evaluated": 41068,
+    "max_samples_cap": null
+  },
+  "snr_definition": "max(clean) / std(noisy), std over the full trace, per channel",
+  "snr_selection": {
+    "min_snr_exclusive": 1.0,
+    "max_snr_exclusive": 1000.0,
+    "plotted_bin_edges": [
+      1.0,
+      2.0,
+      3.0,
+      4.0,
+      5.0,
+      6.0,
+      7.0,
+      8.0,
+      9.0,
+      10.0
+    ],
+    "min_traces_per_plotted_bin": 20,
+    "note": "Truth-conditioned SNR window applied identically to the noisy and denoised curves. This is NOT the noisy-input trigger used by the timing analysis."
+  },
+  "shaded_band": "16th-84th percentile of delta_A (central 68%)"
+}
