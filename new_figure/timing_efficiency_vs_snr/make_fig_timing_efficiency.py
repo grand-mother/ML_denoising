@@ -20,9 +20,9 @@ Referee_update/reply4.md:
      crop, no swap augmentation. The published run used an unseeded
      `split_indices` and swap_prob=0.5 on the test set, so it could not be
      reproduced bit-for-bit.
-  2. The SNR axis uses the revised off-pulse definition
-     max|Hilbert(clean)| / std(noisy off-pulse), the single canonical definition
-     adopted for every SNR-binned figure in this revision.
+  2. The SNR axis uses the paper definition max(clean) / std(noisy) with the
+     standard deviation over the full trace — the same definition as the
+     published figure and as every other SNR-binned figure.
 
 Usage:
   python new_figure/timing_efficiency_vs_snr/make_fig_timing_efficiency.py

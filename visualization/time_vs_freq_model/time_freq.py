@@ -587,6 +587,7 @@ def ablation_traces_plot_comparison(testloader,
                     clean_np = clean_data[sample_idx, channel_idx].cpu().numpy()
                     noisy_np = noisy_data[sample_idx, channel_idx].cpu().numpy()
                     
+                    # Paper SNR: max(clean) / std(noisy) over the full trace.
                     if np.std(noisy_np) != 0:
                         snr = np.max(clean_np) / np.std(noisy_np)
                     else:

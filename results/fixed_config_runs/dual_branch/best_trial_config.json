@@ -1,0 +1,38 @@
+{
+  "lr": 1.6563229048775545e-05,
+  "max_lr": 0.0005066725384466413,
+  "step_size": 10000,
+  "lr_mode": "triangular2",
+  "weight_decay": 0.0002565942350522923,
+  "batch_size": 1024,
+  "mag_weight": 0.01167558670579447,
+  "phase_weight": 0.028892879445242478,
+  "model_config": {
+    "time_branch": {
+      "conv_channels": 64,
+      "res_channels": [
+        128,
+        256
+      ]
+    },
+    "freq_branch": {
+      "conv_channels": 64,
+      "res_channels": [
+        128,
+        256
+      ]
+    },
+    "decoder_channels": [
+      128,
+      64,
+      32,
+      3
+    ],
+    "use_freq_branch": true
+  },
+  "criterion": "multi_l1",
+  "epochs": 100,
+  "model_type": "CNN",
+  "trace_length": 512,
+  "use_freq_branch": true
+}

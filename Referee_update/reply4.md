@@ -1,98 +1,45 @@
 # Reply — item 1: SNR definition in the SNR-binned figures
 
-**Question.** Do the SNR-binned figures use `max|Hilbert(clean)| / std(noisy off-pulse)`?
+**Question / decision.** The revision had briefly adopted an off-pulse SNR. That is
+withdrawn. The original SNR definition used in the analysis is restored everywhere:
 
-**Answer.**
+```
+SNR = max(clean) / std(noisy)
+```
 
-- **`raytune_lib_final` (published-article figure branch): No.** The figures use the raw
-  full-window ratio `max(clean) / std(noisy)`. There is **no off-pulse exclusion window to
-  record** — that concept is not in the published plotting code.
-- **`raytune_lib_final_v1` (this revision branch): Yes.** All SNR-binned figure scripts now
-  use the off-pulse definition, including `overleaf_plots.py` (all 9 call sites converted);
-  the old full-window helpers are deprecated and delegate to the canonical function.
+with the standard deviation evaluated over the **full trace** — no off-pulse exclusion, no
+band-limiting, raw signed maximum of the clean trace, computed per channel.
 
-## Evidence (brief)
+**Status: restored throughout `raytune_lib_final_v1`.** The published branch
+`raytune_lib_final` already used this definition, so the two branches now agree and there is
+**no exclusion half-width to report** — the concept does not exist in this definition.
 
-- Published SNR = `snr = np.max(clean_np) / np.std(noisy_np)` — full window, raw max, no
-  exclusion. In `visualization/overleaf_plots.py` (branch `raytune_lib_final`, `f088f237`)
-  at lines 163, 306, 376, 637, 718, 1224, 1534, 1692.
-- Revised off-pulse SNR: `utils/referee_revision_utils.py::paper_input_snr`.
-- The two differ numerically (3,000 valid traces, exclude ±64): median 1.119 vs 1.432
-  (revised/production ≈ 1.27); 6.6 % of channel-traces flip across the SNR = 4 boundary.
-  So it is a real change, not a relabelling.
-- Exclusion window: none exists in production; the corrected figure uses **64 samples**, a
-  stated choice.
+## Where it is implemented
 
-## Corrected figure — uses the NEW SNR definition
+| Location | Form |
+|---|---|
+| `visualization/overleaf_plots.py:34` | `_paper_snr_1d()` — `max(clean)/std(noisy)`; used by all 9 SNR call sites |
+| `training/raytune_training_function.py:440` | `calculate_snr()` — restored to `np.max(clean)/np.std(noisy)` |
+| `visualization/common_ml_utils.py:84` | `compute_snr()` — same definition, reduced over channels for coarse per-trace bookkeeping |
+| `make_fig_amplitude_bias_vs_snr.py` | computed inline, per channel |
+| Appendix NMSE/SNR-gain (`option3`) | computed inline, per channel |
 
-`new_figure/` (SLURM 55300986, done). x-axis = **off-pulse**
-`max|Hilbert(clean)| / std(noisy off-pulse)`, exclude ±64, via `paper_input_snr` — **not**
-the published `max(clean)/std(noisy)`. Fiducial `l1_CNN_100epochs_36samples`; plots
-`δ_A = A_rec/A_true − 1` vs SNR. Outputs: `amplitude_bias_vs_snr.pdf`,
-`amplitude_bias_table.csv`, `amplitude_bias_per_trace.npz`, `run_snr_binned_offpulse.sh`.
+No helper now computes an off-pulse or envelope-based SNR for any reported figure, and the
+earlier "deprecated" shims that delegated to `paper_input_snr` have been reverted to the
+plain definition above. `utils/paper_losses_metrics.py::paper_input_snr` still exists but is
+no longer called by any figure script.
 
-## Conversion status on `raytune_lib_final_v1`
+## Consequence for the figures
 
-- `visualization/overleaf_plots.py` — **converted**: all SNR sites now call
-  `_offpulse_snr_1d()`, a thin wrapper over the canonical `paper_input_snr`
-  (off-pulse, exclude ±64); compiles clean.
-- `training/raytune_training_function.py:440` (`calculate_snr`),
-  `visualization/common_ml_utils.py:84` (`compute_snr`) — deprecated, delegate to
-  `paper_input_snr`.
-- `make_fig_amplitude_bias_vs_snr.py`, Appendix NMSE/SNR-gain (`option3`) — off-pulse.
+No retraining is needed. Only the **new SNR-binned figures added for the revision** are
+regenerated with the restored x-axis:
 
-Note: this is a code change on the working tree (not yet committed), and the published
-`raytune_lib_final` branch is unchanged. Regenerating the figures with the new x-axis is a
-separate step and still depends on locking the production reconstruction pipeline.
+- `new_figure/peak_amplitude_bias/` — peak-amplitude bias vs input SNR
+- `new_figure/timing_efficiency_vs_snr/` — timing efficiency vs input SNR (Fig. 7)
 
-## Excluded-interval half-width — confirmed from the figure-generating scripts
-
-**The half-width is 64 samples on each side of the clean Hilbert-envelope peak,
-i.e. ±32 ns at the 0.5 ns sampling interval (a 129-sample excluded window).**
-Verified by reading each script that produces a reported SNR-binned figure:
-
-| Figure / script | Exclusion half-width | Where it is set |
-|---|---|---|
-| Canonical definition | **64 samples** | `utils/paper_losses_metrics.py:199` `PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH = 64` |
-| All `overleaf_plots.py` figures (amplitude ratio, timing, SNR distribution) | **64 samples** | `visualization/overleaf_plots.py:32` `_OFFPULSE_EXCLUDE_HW = 64` → `_offpulse_snr_1d()` |
-| Amplitude-bias vs SNR (referee Q5) | **64 samples** | `make_fig_amplitude_bias_vs_snr.py:148, 216, 295` `exclude_radius = 64` (its docstring states "for 0.5 ns sampling, exclude_radius=64 removes ±32 ns") |
-| Appendix NMSE / output-SNR gain (`option3`) | **64 samples** | `..._option3_truth_cleanpower_gate.py:394` passes `PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH` |
-| Timing efficiency vs SNR (Fig. 7, regenerated) | **64 samples** | `new_figure/timing_efficiency_vs_snr/make_fig_timing_efficiency.py` → `peak_time_analysis_for_all_channels` → `_offpulse_snr_1d()` |
-
-Two distinct quantities must not be confused with this one:
-
-1. **Trigger σ in the timing figure** uses its own, *smaller* window:
-   `exclude_radius = 32` samples (`overleaf_plots.py:898, 1096`), applied to the
-   *noisy* envelope to estimate the per-trace σ for the trigger cut. It is not the
-   SNR denominator.
-2. **A 150 ns (300-sample) exclusion** still appears in three appendix scripts
-   (`NMSE_STD_VS_SNR/...`, `plot_usable_antenna_vs_SNR/...`, and the legacy path of
-   `option3`) as `snr_exclude_half_width_ns = 150.0`. That belongs to a *different*
-   SNR (noisy-envelope MAD, ROI-peak style), not the off-pulse definition above.
-   Any figure quoting the off-pulse SNR must use the 64-sample value.
-
-## Archiving and removal of the stale helper
-
-**Archived with the code release.** Every script above is tracked in git, including
-the newly added `new_figure/timing_efficiency_vs_snr/{make_fig_timing_efficiency.py,
-run_timing_figure.sh}` and its deterministic `evaluation_manifest.npz`. Figure PDFs
-are excluded by `.gitignore` by design; the scripts plus the seeded split manifest
-reproduce them.
-
-**Stale helper deprecated.** The public helpers that computed the raw clean-trace
-maximum over a full-window standard deviation — `calculate_snr`
-(`training/raytune_training_function.py:440`) and `compute_snr`
-(`visualization/common_ml_utils.py:84`) — now raise `DeprecationWarning` and delegate
-to `paper_input_snr` with the confirmed 64-sample half-width. Their docstrings state
-explicitly that the original definition was **not** used for any reported figure.
-
-Three inline uses of the old raw-max / full-window ratio remain, all in code that
-produces **no** reported figure, and each is now labelled `LEGACY SNR … NOT used for
-any reported figure`: `overleaf_plots.py:1875` (superseded dual-vs-time ablation),
-`visualization/time_vs_freq_model/time_freq.py:591` (exploratory ablation, superseded
-by `results/fixed_config_runs/`), and `evaluation/model_comparison.py:318, 541`
-(exploratory diagnostic). They are left numerically unchanged on purpose: converting
-them would silently alter those legacy figures' x-axes.
+Figures inherited unchanged from the published branch already use this definition and are
+left untouched. All captions must state the definition above; any wording referring to an
+off-pulse window or an exclusion half-width should be deleted.
 
 ---
 
@@ -160,21 +107,65 @@ statements apply to the revised figure that would replace it.
 (`:438`); the band is `fill_between(x, q16, q84)` (`:552-555`); the reported half-width is
 `sigma68 = 0.5*(q84 − q16)` (`:443`). Caption text to use: "central 68 % interval".
 
-**Same traces and same SNR — confirmed.** `compute_delta_A` builds one `snr` array (from
-clean+noisy, via `paper_input_snr`) and both residuals `delta_A_noisy = A_noisy/A_true − 1`
-and `delta_A_denoised = A_den/A_true − 1` on the **same traces** (`:349-376`). In
-`build_table`, both methods read the **same** `snr_ch = quantities["snr"][:, ch_idx]`
-(`:build_table`), so the noisy and denoised curves are binned on identical SNR values and
-the same trace set.
+**Same traces and same SNR — enforced, not just observed.** `compute_delta_A` builds one
+`snr` array from clean+noisy using the paper definition `max(clean)/std(noisy)` over the
+full trace, and both residuals `delta_A_noisy = A_noisy/A_true − 1` and
+`delta_A_denoised = A_den/A_true − 1` on the **same traces**. `shared_selection_mask()` then
+requires a trace to be usable for **both** methods before either curve may use it, so the
+two curves cannot see different events by construction; `build_table` passes that one mask
+to both series and both read the **same** `snr_ch = quantities["snr"][:, ch_idx]`. The
+accompanying counts table asserts equality of the per-bin counts and fails loudly otherwise.
 
-**One caveat on "trigger-passing".** The current selection is an SNR window
-`min_snr < snr < max_snr` (default `1 < snr < 1000`, `:414`) applied to that shared SNR
-array — a truth-conditioned SNR floor, applied identically to both curves. It is **not** the
-noisy-input trigger (`|Hilbert(noisy)| ≥ k·σ`) that the word "trigger-passing" implies.
-`referee_revision_utils.trigger_pass_mask` exists if we want the literal noisy trigger. So
-the caption should either say "traces with SNR > 1" (what is actually done) or the selection
-should be switched to the noisy trigger — a one-line choice. Either way both curves use the
-identical selection.
+**The sample is SNR-selected, not trigger-selected — the manuscript is corrected to match.**
+The selection actually applied is a truth-conditioned SNR window on the shared SNR array:
+
+| Item | Value |
+|---|---|
+| Selection | `min_snr < SNR < max_snr`, strict on both sides |
+| **Exact SNR range entering the statistics** | **1 < SNR < 1000** |
+| **SNR range shown in the figure** | **1 ≤ SNR < 10** (bin edges 1, 2, …, 10) |
+| Minimum traces for a bin to be plotted | 20 |
+| Applied to | the noisy and denoised curves identically (one shared mask) |
+
+This is **not** the noisy-input trigger (`|Hilbert(noisy)| ≥ k·σ`) used by the timing
+analysis, and the two analyses therefore do **not** share a sample. The claim that this
+figure uses the same trigger-passing sample as the timing analysis is withdrawn; the
+manuscript and caption must instead state:
+
+> Traces are selected by input SNR (1 < SNR < 1000); the figure shows the range
+> 1 ≤ SNR < 10. The shaded band is the 16th–84th percentile of δ_A in each SNR bin.
+> The noisy and denoised curves use the identical trace selection and the identical
+> SNR values.
+
+The word "trigger-passing" should be removed from the caption and body text wherever it
+refers to this figure. The per-bin sample sizes are given in the accompanying
+`snr_selected_counts.csv` / `.tex`.
+
+## Checkpoint provenance for this figure
+
+An earlier draft of this figure was produced with a **non-production** checkpoint (the
+wrapped-phase fixed-config run in `results/fixed_config_runs/dual_branch/`). That has been
+corrected: the figure is regenerated with the **production `multi_v3` checkpoint**, running
+inference and plotting only — no retraining.
+
+| Item | Value |
+|---|---|
+| **Checkpoint** | `/sps/grand/macias/Sam_Result/multi_v3_CNN_100epochs_36samples/best_model.pth` |
+| **Configuration** | `best_trial_config.json`: `model_type` CNN; time branch conv 64, res [128, 256]; frequency branch conv 64, res [128, 256]; nominal `decoder_channels` [128, 64, 32, 3] → effective [384, 64, 32, 3] |
+| **Loss** | `multi_v3` = time L1 + `mag_weight`·L1(\|rFFT\|) + `phase_weight`·L1(direct principal phase), `mag_weight` 0.011676, `phase_weight` 0.028893 |
+| **Input length** | **512 samples**, the production training length (`--eval-len 512`); deterministic pulse-centred window, no random crop, no swap augmentation |
+| **Test split** | seeded deterministic 80/10/10, `seed = 12345`; the exact indices are written to `new_figure/peak_amplitude_bias/evaluation_manifest.npz` |
+| **Archived metrics** | validation loss 0.19997, validation PSNR 66.53 dB, 63 of 100 epochs completed |
+
+Every one of these fields is also written by the script itself to
+`new_figure/peak_amplitude_bias/figure_provenance.json` at run time, so the figure carries
+its own provenance record.
+
+Two evaluation-pipeline defects were fixed to make this record meaningful:
+`load_data_and_run_inference` previously evaluated at the **full 1024-sample** trace (a
+mismatch against the 512-sample training length) and used the **unseeded** `split_indices`,
+so the test split could not be recorded at all. Both are now explicit parameters
+(`eval_len`, `split_seed`), set to 512 and 12345 for this figure.
 
 ---
 
@@ -195,25 +186,24 @@ x-axis (last row below).
 | **Signal / ROI window** | ±**150 ns** around the clean Hilbert-envelope peak (per trace, per channel) | `roi_half_width_ns=150.0` (`:74`); ROI at `_nmse_snrout_and_cleanpower_in_roi` (`:298`) |
 | **Output-SNR definition** | `SNR_out(dB) = 10·log10( Σclean² / Σ(rec−clean)² )` over the band-limited ROI; the figure plots `ΔSNR_out = SNR_out(rec) − SNR_out(noisy)` | `snrout_db = 10*log10(sig_pow/err_pow)` (`:311`), `sig_pow=Σx²`, `err_pow=Σ(y−x)²` |
 | **Truth-dependent selection** | Clean-power gate: drop trace-channels whose clean ROI power is below the 10th percentile of positive clean powers (≥200 positives required); applied to noisy and denoised identically | `apply_clean_power_gate=True`, `clean_power_gate_quantile=0.10`, `min_count=200` (`:104-106`) |
-| **Off-pulse / input-SNR (x-axis)** | On `raytune_lib_final_v1`: the canonical off-pulse `paper_input_snr` (`max\|Hilbert(clean)\|/std(noisy off-pulse)`, exclude ±64). On the **published** branch it was `_compute_snr_roi_peak_style` = noisy-ROI-peak / envelope-MAD, exclusion half-width `snr_exclude_half_width_ns=150` | v1: `paper_input_snr(...)` (`:392`); published: `_compute_snr_roi_peak_style` (branch `:377`) |
+| **Input-SNR (x-axis)** | The paper definition `max(clean)/std(noisy)`, standard deviation over the **full trace**, per channel — the same definition as every other figure. The published branch had used `_compute_snr_roi_peak_style` (noisy-ROI-peak / envelope-MAD, ±150 ns exclusion); that variant is now unused | computed inline at `:390-394`; the ROI-peak helper remains defined but is not called |
 
 **Match / mismatches to fix in text or caption:**
 
-1. **Input-SNR changed between branches.** The published appendix figure used a
-   noisy-ROI-peak / envelope-MAD SNR (in-band, ±150 ns exclusion), **not** the off-pulse
-   definition. On `raytune_lib_final_v1` the x-axis is now the canonical off-pulse SNR. The
-   manuscript must state whichever is used; if the revised (off-pulse) x-axis is adopted,
-   this appendix figure is one of the SNR-binned figures that changes and should be
-   regenerated (same reconstruction caveat as item 1).
-2. **Two different exclusion widths coexist.** This appendix figure's SNR excludes ±150 ns
-   (published) / ±64 samples (v1 off-pulse), while the amplitude-bias figure (item 3) uses
-   ±64 samples with no band-pass. The manuscript should state the exclusion window and
-   band-pass per figure, since they are not identical across figures.
+1. **Input-SNR now uniform.** This appendix figure previously used a noisy-ROI-peak /
+   envelope-MAD SNR with a ±150 ns exclusion, which differed from every other figure. It now
+   uses the single paper definition `max(clean)/std(noisy)` over the full trace, so the
+   x-axis is directly comparable with the amplitude and timing figures. No exclusion window
+   applies to the SNR any more.
+2. **The ±150 ns window is still used, but only for the fidelity ROI.** `roi_half_width_ns
+   = 150` still defines the window in which NMSE and output SNR are computed; it is no
+   longer part of any SNR definition. The caption should keep the ROI statement and drop any
+   mention of an SNR exclusion window.
 3. **Band-limited vs broadband.** The fidelity metrics here are **band-limited (50–200 MHz)**,
-   unlike the amplitude/timing figures which are broadband. The caption must say so.
-4. **Regeneration.** No regeneration is needed to confirm the definitions (audit only). The
-   figure would only need regenerating if the revised off-pulse x-axis (point 1) is adopted,
-   because that changes the x-axis binning.
+   unlike the amplitude/timing figures which are broadband. The caption must say so. The
+   input SNR itself is broadband, matching the other figures.
+4. **Regeneration.** The x-axis definition changed, so this appendix figure should be
+   regenerated if it is retained in the revision.
 
 ---
 

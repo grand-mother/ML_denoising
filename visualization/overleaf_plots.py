@@ -23,20 +23,31 @@ from torch.utils.data import Dataset
 # Import model classes for comparison
 from training.models.cnn import DualBranchAutoencoder
 
-# Revised paper SNR (referee revision): the SNR-binned figures now use
-#   SNR = max|Hilbert(clean)| / std(noisy off-pulse samples)
-# instead of the former full-window max(clean)/std(noisy). The off-pulse
-# exclusion half-width is a stated revision choice (no production value existed).
-# Delegates to the single canonical implementation used everywhere else.
-from utils.referee_revision_utils import paper_input_snr
-_OFFPULSE_EXCLUDE_HW = 64  # samples, +/- around the clean Hilbert-envelope peak
+# Paper SNR definition used throughout the analysis:
+#
+#     SNR = max(clean) / std(noisy)
+#
+# with the standard deviation evaluated over the FULL trace (no off-pulse
+# exclusion, no band-limiting, raw signed maximum of the clean trace, computed
+# per channel). This is the definition used for every reported figure and is the
+# single definition for the whole repository; do not substitute an off-pulse or
+# envelope-based variant.
+def _paper_snr_1d(clean_np, noisy_np):
+    """Per-trace paper SNR for a 1D clean/noisy trace: max(clean)/std(noisy)."""
+    denom = float(np.std(np.asarray(noisy_np)))
+    if denom == 0.0:
+        return float("inf")
+    return float(np.max(np.asarray(clean_np)) / denom)
 
-def _offpulse_snr_1d(clean_np, noisy_np):
-    """Revised per-trace SNR for a 1D clean/noisy trace (canonical paper_input_snr)."""
-    return float(paper_input_snr(
-        np.asarray(clean_np)[None, :], np.asarray(noisy_np)[None, :],
-        exclude_half_width_samples=_OFFPULSE_EXCLUDE_HW,
-    ).snr[0])
+# Sampling interval of the simulated traces. Peak times are computed as sample
+# indices, so the timing selections below are sample counts; this constant is the
+# single place that converts them to nanoseconds for the axis/legend labels.
+# A 10-sample tolerance is therefore 5 ns.
+_DT_NS = 0.5  # nanoseconds per sample
+
+def _samples_to_ns_label(n_samples, dt_ns=_DT_NS):
+    """Format a sample-count timing threshold as a nanosecond value for labels."""
+    return f"{n_samples * dt_ns:g}"
 
 class CustomDataset(Dataset):
     def __init__(self, noised_signals, clean_signals, indices=None):
@@ -175,7 +186,7 @@ def peak_time_analysis(dataloader,
                     timing = np.arange(clean_np.size)
                     
                     if np.std(noisy_np) != 0:
-                        snr = _offpulse_snr_1d(clean_np, noisy_np)
+                        snr = _paper_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
                     
@@ -318,7 +329,7 @@ def peak_amplitude_analysis(dataloader,
                     denoised_np = denoised_output[i, idx].cpu().numpy()
                     
                     if np.std(noisy_np) != 0:
-                        snr = _offpulse_snr_1d(clean_np, noisy_np)
+                        snr = _paper_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
 
@@ -388,7 +399,7 @@ def traces_plot(testloader,
                     
                     # Calculate SNR
                     if np.std(noisy_np) != 0:
-                        snr = _offpulse_snr_1d(clean_np, noisy_np)
+                        snr = _paper_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
                     
@@ -649,7 +660,7 @@ def peak_amplitude_analysis_all_channels(dataloader,
                     denoised_np = denoised_output[i, idx].cpu().numpy()
                     
                     if np.std(noisy_np) != 0:
-                        snr = _offpulse_snr_1d(clean_np, noisy_np)
+                        snr = _paper_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
 
@@ -730,7 +741,7 @@ def traces_plot_time_frequency(testloader,
                     
                     # Calculate SNR
                     if np.std(noisy_np) != 0:
-                        snr = _offpulse_snr_1d(clean_np, noisy_np)
+                        snr = _paper_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
                     
@@ -935,6 +946,7 @@ def plot_peak_time_efficiency_combined(
     timing_thresholds_list: List[int],
     save_path: Optional[str] = None,
     trigger_k: float = 1.0,
+    dt_ns: float = _DT_NS,
 ) -> None:
     """
     Plots the peak time efficiency for all 3 channels in one row.
@@ -948,9 +960,13 @@ def plot_peak_time_efficiency_combined(
         peak_times: dict[channel]['Clean'/'Noisy'/'Denoised'] arrays
         peak_amplitudes: dict[channel]['Clean'/'Noisy'/'Denoised'] envelope peak amplitudes
         noise_sigmas: dict[channel] per-trace noise σ in the SAME space as noisy_amp
-        timing_thresholds_list: list of thresholds for |Δt_peak|
+        timing_thresholds_list: list of thresholds for |Δt_peak|, in SAMPLES
+            (peak times are sample indices, so the selection is a sample count)
         save_path: path to save the plot
         trigger_k: multiplier for the dynamic threshold; default k=1.0
+        dt_ns: sampling interval, used ONLY to label the sample-count thresholds
+            in nanoseconds. The selection itself is unchanged: a 10-sample
+            tolerance is displayed as 5 ns at dt = 0.5 ns/sample.
     """
     if save_path and not os.path.exists(save_path):
         os.makedirs(save_path, exist_ok=True)
@@ -1006,7 +1022,7 @@ def plot_peak_time_efficiency_combined(
             where="post",
             color="black",
             linewidth=3,
-            label=fr"Denoised: $|\Delta t_{{peak}}| \leq {timing_thresholds[0]}$ samples",
+            label=fr"Denoised: $|\Delta t_{{peak}}| \leq {_samples_to_ns_label(timing_thresholds[0], dt_ns)}$ ns",
         )
 
         # For each threshold: show fraction exceeding threshold for denoised (orange) and noisy (red dashed)
@@ -1031,7 +1047,7 @@ def plot_peak_time_efficiency_combined(
                 color="orange",
                 linestyle="-",
                 linewidth=2.5,
-                label=fr"Denoised: $|\Delta t_{{peak}}| > {timing_thresholds[idx]}$ samples",
+                label=fr"Denoised: $|\Delta t_{{peak}}| > {_samples_to_ns_label(timing_thresholds[idx], dt_ns)}$ ns",
             )
             ax.step(
                 snr_bins[:-1],
@@ -1040,7 +1056,7 @@ def plot_peak_time_efficiency_combined(
                 color="red",
                 linestyle="--",
                 linewidth=2,
-                label=fr"Noisy: $|\Delta t_{{peak}}| > {timing_thresholds[idx]}$ samples",
+                label=fr"Noisy: $|\Delta t_{{peak}}| > {_samples_to_ns_label(timing_thresholds[idx], dt_ns)}$ ns",
             )
 
         ax.axhline(y=0.95, color="gray", linestyle="--", linewidth=1.5, alpha=0.7, label="95% threshold")
@@ -1132,9 +1148,8 @@ def peak_time_analysis_for_all_channels(
 
                     timing = np.arange(clean_np.size)
 
-                    # Your original SNR definition (truth-based because it uses clean peak)
-                    denom = np.std(noisy_np)
-                    snr = (np.max(clean_np) / denom) if denom != 0 else float("inf")
+                    # Paper SNR: max(clean) / std(noisy) over the full trace.
+                    snr = _paper_snr_1d(clean_np, noisy_np)
 
                     if max_snr > snr > min_snr:
                         envelope_clean = np.abs(hilbert(clean_np))
@@ -1236,7 +1251,7 @@ def plot_peak_time_efficiency_for_hilbert_filter(dataloader,
                 timing = np.arange(clean_np.size)
                 
                 if np.std(noisy_np) != 0:
-                    snr = _offpulse_snr_1d(clean_np, noisy_np)
+                    snr = _paper_snr_1d(clean_np, noisy_np)
                 else:
                     snr = float('inf')
                     
@@ -1546,7 +1561,7 @@ def model_comparison_analysis(dataloader,
                     noisy_np = noisy_data[i, idx].cpu().numpy()
                     
                     if np.std(noisy_np) != 0:
-                        snr = _offpulse_snr_1d(clean_np, noisy_np)
+                        snr = _paper_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
                     
@@ -1704,7 +1719,7 @@ def traces_plot_comparison(testloader,
                     
                     # Calculate SNR
                     if np.std(noisy_np) != 0:
-                        snr = _offpulse_snr_1d(clean_np, noisy_np)
+                        snr = _paper_snr_1d(clean_np, noisy_np)
                     else:
                         snr = float('inf')
                     
@@ -1856,6 +1871,8 @@ def ablation_peak_time_efficiency_comparison(
                     dual_np = dual_output[i, ch].cpu().numpy()
                     time_np = time_output[i, ch].cpu().numpy()
 
+                    # Paper SNR: max(clean) / std(noisy) over the full trace,
+                    # the same definition used by every other figure here.
                     denom = np.std(noisy_np)
                     snr = (np.max(clean_np) / denom) if denom != 0 else float("inf")
 
@@ -1901,7 +1918,7 @@ def ablation_peak_time_efficiency_comparison(
         
         plt.xlabel('Signal-to-Noise Ratio (SNR)', fontsize=14)
         if ch == 0:
-            plt.ylabel(f'Denoising Efficiency ($|\\Delta t| \\leq {time_tolerance_ns}$ samples)', fontsize=14)
+            plt.ylabel(f'Denoising Efficiency ($|\\Delta t| \\leq {time_tolerance_ns:g}$ ns)', fontsize=14)
         plt.title(f'Peak Time Efficiency - {channels[ch]}', fontsize=14)
         plt.legend(fontsize=12)
         plt.grid(True, alpha=0.3)

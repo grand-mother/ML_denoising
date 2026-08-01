@@ -22,25 +22,25 @@ scatter of peak-amplitude recovery.
 
 Important SNR convention
 ------------------------
-For the SNR axis, this script uses a truth-conditioned off-pulse SNR:
+The SNR axis uses the paper definition used throughout the analysis:
 
-    SNR = A_true / sigma_noise_off,
+    SNR = max(clean) / std(noisy),
 
-where A_true is the clean Hilbert-envelope peak and sigma_noise_off is estimated
-from samples of the noisy trace away from the clean pulse time.
+with the standard deviation evaluated over the FULL trace (no off-pulse
+exclusion, no band-limiting, raw signed clean maximum), computed per channel.
+The identical SNR array is used for the noisy and the denoised curves.
 
-By default, sigma_noise_off is the RMS of the off-pulse noisy waveform samples.
-This is the recommended amplitude-bias diagnostic because it uses the same
-Hilbert-envelope signal amplitude as delta_A while estimating the noise scale
-away from the pulse.
+Selection
+---------
+Traces are selected by input SNR: min_snr < SNR < max_snr (default 1 < SNR <
+1000), applied identically to both curves through shared_selection_mask(). This
+is NOT the noisy-input trigger used by the timing analysis, so this figure does
+not share a sample with it. The plotted range is set by snr_edges (default
+1 <= SNR < 10).
 
-Optionally, use
-
-    --noise-estimator envelope_std
-
-to estimate the noise scale from the off-pulse Hilbert-envelope values instead.
-This is closer to the trigger-like envelope-space noise estimate used in parts
-of the paper.
+The --noise-estimator envelope_std / envelope_mad options select an alternative
+off-pulse envelope noise scale; they are non-default cross-checks only and are
+not the paper definition.
 
 Data source
 -----------
@@ -89,7 +89,7 @@ import csv
 import argparse
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import matplotlib
@@ -128,7 +128,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from visualization.common_ml_utils import load_data_and_run_inference  # noqa: E402
-from utils.paper_losses_metrics import paper_input_snr  # noqa: E402  # task 3: canonical SNR
+# SNR is the paper definition max(clean)/std(noisy) over the full trace, computed inline.
 
 
 # ---------------------------------------------------------------------
@@ -350,15 +350,17 @@ def compute_delta_A(
         delta_noisy = np.where(a_true > 0.0, a_noisy / a_true - 1.0, np.nan)
         delta_denoised = np.where(a_true > 0.0, a_den / a_true - 1.0, np.nan)
 
-    # Task 3: the canonical SNR comes from the single shared paper_input_snr
-    #   SNR = max|Hilbert(clean)| / std(noisy off-pulse, exclude +/- exclude_radius).
-    # This is numerically identical to the old local helper but avoids a parallel
-    # copy. The envelope_std/envelope_mad estimators are NON-canonical cross-checks
-    # kept only in the local helper.
+    # Paper SNR, the single definition used throughout the analysis:
+    #
+    #     SNR = max(clean) / std(noisy)
+    #
+    # with the standard deviation over the FULL trace (no off-pulse exclusion, no
+    # band-limiting, raw signed clean maximum), computed channel by channel so it
+    # matches the (N, C) shape of delta_A. Identical for the noisy and the
+    # denoised curves, which share this one array.
     if cfg.noise_estimator == "raw_rms":
-        snr = paper_input_snr(
-            clean, noisy, exclude_half_width_samples=cfg.exclude_radius,
-        ).snr
+        with np.errstate(divide="ignore", invalid="ignore"):
+            snr = np.max(clean, axis=-1) / np.std(noisy, axis=-1)
     else:
         snr = injected_snr_offpulse(
             clean=clean,
@@ -397,23 +399,54 @@ _STAT_COLUMNS = [
 ]
 
 
+def shared_selection_mask(
+    snr: np.ndarray,
+    delta_noisy: np.ndarray,
+    delta_denoised: np.ndarray,
+    cfg: AmpBiasConfig,
+) -> np.ndarray:
+    """
+    One selection mask used by BOTH the noisy and the denoised series.
+
+    The referee asked us to verify that the two curves are built from identical
+    events. Rather than let each series drop its own non-finite entries, the
+    selection is computed once here and requires a trace to be usable for BOTH
+    methods. It is therefore impossible for the two curves to see different
+    traces, by construction.
+
+    Same shape as the inputs, (N, C).
+    """
+    return (
+        np.isfinite(snr)
+        & np.isfinite(delta_noisy)
+        & np.isfinite(delta_denoised)
+        & (snr > cfg.min_snr)
+        & (snr < cfg.max_snr)
+    )
+
+
 def bin_statistics(
     snr: np.ndarray,
     delta: np.ndarray,
     edges: Tuple[float, ...],
     cfg: AmpBiasConfig,
+    valid: Optional[np.ndarray] = None,
 ) -> List[dict]:
     """
     Compute per-bin statistics for one channel/method series.
 
     snr, delta: 1-D arrays.
+    valid: optional pre-computed selection. When supplied (the normal path) it is
+        the SHARED mask from shared_selection_mask(), so the noisy and denoised
+        series are guaranteed to use identical events and identical SNR values.
     """
-    valid = (
-        np.isfinite(snr)
-        & np.isfinite(delta)
-        & (snr > cfg.min_snr)
-        & (snr < cfg.max_snr)
-    )
+    if valid is None:
+        valid = (
+            np.isfinite(snr)
+            & np.isfinite(delta)
+            & (snr > cfg.min_snr)
+            & (snr < cfg.max_snr)
+        )
     snr = snr[valid]
     delta = delta[valid]
 
@@ -468,9 +501,18 @@ def build_table(quantities: Dict[str, np.ndarray], cfg: AmpBiasConfig) -> List[d
         ("denoised", quantities["delta_A_denoised"]),
     ]
 
+    # ONE selection for both methods (referee: identical event selections).
+    shared_valid = shared_selection_mask(
+        snr=quantities["snr"],
+        delta_noisy=quantities["delta_A_noisy"],
+        delta_denoised=quantities["delta_A_denoised"],
+        cfg=cfg,
+    )
+
     table: List[dict] = []
     for ch_idx, ch_name in enumerate(cfg.channel_names):
         snr_ch = quantities["snr"][:, ch_idx]
+        valid_ch = shared_valid[:, ch_idx]
 
         for method_name, delta in methods:
             rows = bin_statistics(
@@ -478,12 +520,91 @@ def build_table(quantities: Dict[str, np.ndarray], cfg: AmpBiasConfig) -> List[d
                 delta=delta[:, ch_idx],
                 edges=cfg.snr_edges,
                 cfg=cfg,
+                valid=valid_ch,
             )
 
             for r in rows:
                 table.append({"channel": ch_name, "method": method_name, **r})
 
     return table
+
+
+def write_counts_table(table: List[dict], cfg: AmpBiasConfig, out_dir: str) -> None:
+    """
+    Standalone table of SNR-selected traces per SNR bin, one row per bin.
+
+    The referee asked for these counts "in the figure or an accompanying table".
+    They crowded the figure panels, so they are reported here instead, as both a
+    CSV and a LaTeX fragment ready to drop into the manuscript.
+
+    The noisy and denoised series share one selection (shared_selection_mask), so
+    a single count per bin/channel describes both curves; this is asserted below.
+    """
+    centers = sorted({r["snr_bin_center"] for r in table})
+    lookup = {
+        (r["channel"], r["method"], r["snr_bin_center"]): r for r in table
+    }
+
+    rows: List[dict] = []
+    for c in centers:
+        row = {"snr_bin_center": c}
+        lo = hi = None
+        for ch in cfg.channel_names:
+            n_noisy = lookup[(ch, "noisy", c)]["n_traces"]
+            n_den = lookup[(ch, "denoised", c)]["n_traces"]
+            if n_noisy != n_den:
+                raise AssertionError(
+                    f"Selection mismatch in {ch} bin centred {c}: "
+                    f"noisy={n_noisy} vs denoised={n_den}. The shared selection "
+                    "mask should make this impossible."
+                )
+            row[f"n_traces_{ch}"] = n_noisy
+            lo = lookup[(ch, "noisy", c)]["snr_bin_low"]
+            hi = lookup[(ch, "noisy", c)]["snr_bin_high"]
+        row["snr_bin_low"] = lo
+        row["snr_bin_high"] = hi
+        rows.append(row)
+
+    fields = (["snr_bin_low", "snr_bin_high", "snr_bin_center"]
+              + [f"n_traces_{ch}" for ch in cfg.channel_names])
+
+    csv_path = os.path.join(out_dir, "snr_selected_counts.csv")
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        for r in rows:
+            writer.writerow({k: r[k] for k in fields})
+    print(f"Saved counts table: {csv_path}")
+
+    tex_path = os.path.join(out_dir, "snr_selected_counts.tex")
+    with open(tex_path, "w") as f:
+        f.write("% Number of SNR-selected traces per input-SNR bin (1 < SNR < 1000).\n")
+        f.write("% Identical for the noisy and denoised curves by construction\n")
+        f.write("% (both use one shared selection).\n")
+        f.write("\\begin{tabular}{ccrrr}\n\\hline\n")
+        f.write("SNR bin & centre & $N_X$ & $N_Y$ & $N_Z$ \\\\\n\\hline\n")
+        for r in rows:
+            f.write(
+                f"$[{r['snr_bin_low']:.1f},{r['snr_bin_high']:.1f})$ & "
+                f"{r['snr_bin_center']:.1f} & "
+                + " & ".join(f"{r[f'n_traces_{ch}']:,}" for ch in cfg.channel_names)
+                + " \\\\\n"
+            )
+        totals = [sum(r[f"n_traces_{ch}"] for r in rows) for ch in cfg.channel_names]
+        f.write("\\hline\n")
+        f.write("Total & & " + " & ".join(f"{t:,}" for t in totals) + " \\\\\n")
+        f.write("\\hline\n\\end{tabular}\n")
+    print(f"Saved counts table: {tex_path}")
+
+    print("\nSNR-selected traces per SNR bin "
+          "(identical for noisy and denoised):")
+    header = f"  {'SNR bin':>14}" + "".join(f"{'N_' + ch:>10}" for ch in cfg.channel_names)
+    print(header)
+    for r in rows:
+        line = f"  [{r['snr_bin_low']:5.1f},{r['snr_bin_high']:5.1f})"
+        line += "".join(f"{r[f'n_traces_{ch}']:>10,}" for ch in cfg.channel_names)
+        print(line)
+    print(f"  {'Total':>14}" + "".join(f"{t:>10,}" for t in totals))
 
 
 def write_csv(table: List[dict], path: str) -> None:
@@ -534,7 +655,8 @@ def make_figure(table: List[dict], cfg: AmpBiasConfig, out_path: str) -> None:
         med = np.array([r["median_delta_A"] for r in rows])
         q16 = np.array([r["q16_delta_A"] for r in rows])
         q84 = np.array([r["q84_delta_A"] for r in rows])
-        return x, med, q16, q84
+        n = np.array([r["n_traces"] for r in rows])
+        return x, med, q16, q84, n
 
     handles, labels = [], []
     for ch_idx, ch_name in enumerate(cfg.channel_names):
@@ -545,7 +667,7 @@ def make_figure(table: List[dict], cfg: AmpBiasConfig, out_path: str) -> None:
         # Draw noisy first, denoised second.
         for method in ("noisy", "denoised"):
             st = method_style[method]
-            x, med, q16, q84 = series(ch_name, method)
+            x, med, q16, q84, n = series(ch_name, method)
             if x.size == 0:
                 continue
 
@@ -565,12 +687,16 @@ def make_figure(table: List[dict], cfg: AmpBiasConfig, out_path: str) -> None:
                 lw=2.2,
                 marker=st["marker"],
                 markersize=6,
-                label=st["label"],
+                label=st["label"] + " (median)",
             )[0]
 
             if ch_idx == 0:
                 handles.append(h)
-                labels.append(st["label"])
+                labels.append(st["label"] + " (median)")
+
+        # Per-bin trace counts are NOT drawn on the figure (they crowded the
+        # panels); they are reported in the accompanying
+        # snr_selected_counts.csv / .tex table instead.
 
         ax.set_xlabel("SNR", fontsize=cfg.fontsize)
         ax.set_ylim(*cfg.ylim)
@@ -584,12 +710,20 @@ def make_figure(table: List[dict], cfg: AmpBiasConfig, out_path: str) -> None:
             )
 
     if handles:
+        # Spell the shaded interval out in the legend itself, so the figure is
+        # self-describing and cannot be misread as a standard error or +/-1 sigma.
+        from matplotlib.patches import Patch
+
+        band_proxy = Patch(
+            facecolor="0.5", alpha=cfg.band_alpha, edgecolor="none",
+            label="shaded: 16th-84th pct (central 68%)",
+        )
         axes[0].legend(
-            handles,
-            labels,
+            handles + [band_proxy],
+            labels + ["shaded: 16th-84th pct (central 68%)"],
             loc="upper right",
             frameon=False,
-            fontsize=cfg.fontsize,
+            fontsize=cfg.fontsize - 6,
         )
 
     fig.tight_layout()
@@ -721,6 +855,23 @@ def main() -> None:
         default="-1.0,2.0",
         help="Y-axis limits as low,high.",
     )
+    parser.add_argument(
+        "--eval-len",
+        type=int,
+        default=512,
+        help=(
+            "Deterministic evaluation trace length. Default 512 = the production "
+            "training length, so the checkpoint is evaluated at the length it was "
+            "trained on. Pass 0 to use the full 1024-sample trace."
+        ),
+    )
+    parser.add_argument(
+        "--split-seed",
+        type=int,
+        default=12345,
+        help="Seed for the deterministic 80/10/10 split, so the test set is recorded "
+             "and reproducible.",
+    )
 
     args = parser.parse_args()
 
@@ -746,6 +897,9 @@ def main() -> None:
     print(f"  denominator = off-pulse noisy-trace scale ({cfg.noise_estimator})")
     print(f"  exclude +/- {cfg.exclude_radius} samples around clean pulse peak")
 
+    eval_len = args.eval_len if args.eval_len and args.eval_len > 0 else None
+    manifest_path = os.path.join(args.out_dir, "evaluation_manifest.npz")
+
     pack = load_data_and_run_inference(
         model_path=args.model_path,
         metrics_json=args.metrics_json,
@@ -755,6 +909,9 @@ def main() -> None:
         batch_size=args.batch_size,
         test_only=True,
         max_samples=args.max_samples,
+        eval_len=eval_len,
+        split_seed=args.split_seed,
+        manifest_path=manifest_path,
     )
 
     clean = np.asarray(pack.clean)
@@ -771,8 +928,64 @@ def main() -> None:
     quantities = compute_delta_A(clean=clean, noisy=noisy, denoised=denoised, cfg=cfg)
     table = build_table(quantities, cfg)
 
+    # --- Provenance record: exactly which checkpoint produced this figure -----
+    import json as _json
+    try:
+        with open(args.config_json) as _f:
+            _ckpt_cfg = _json.load(_f)
+    except Exception:
+        _ckpt_cfg = {}
+    try:
+        with open(args.metrics_json) as _f:
+            _ckpt_metrics = _json.load(_f)
+    except Exception:
+        _ckpt_metrics = {}
+
+    provenance = {
+        "checkpoint_path": os.path.abspath(args.model_path),
+        "config_json": os.path.abspath(args.config_json),
+        "metrics_json": os.path.abspath(args.metrics_json),
+        "criterion": _ckpt_cfg.get("criterion"),
+        "model_type": _ckpt_cfg.get("model_type"),
+        "model_config": _ckpt_cfg.get("model_config"),
+        "checkpoint_metrics": _ckpt_metrics,
+        "input_length_samples": eval_len if eval_len is not None else int(clean.shape[-1]),
+        "evaluated_trace_shape": list(clean.shape),
+        "data_path": args.data_path,
+        "test_split": {
+            "seed": args.split_seed,
+            "fractions": {"train": 0.8, "valid": 0.1, "test": 0.1},
+            "manifest": os.path.abspath(manifest_path),
+            "n_traces_evaluated": int(clean.shape[0]),
+            "max_samples_cap": args.max_samples,
+        },
+        "snr_definition": "max(clean) / std(noisy), std over the full trace, per channel",
+        "snr_selection": {
+            "min_snr_exclusive": cfg.min_snr,
+            "max_snr_exclusive": cfg.max_snr,
+            "plotted_bin_edges": list(cfg.snr_edges),
+            "min_traces_per_plotted_bin": cfg.min_count_plot,
+            "note": "Truth-conditioned SNR window applied identically to the noisy "
+                    "and denoised curves. This is NOT the noisy-input trigger used "
+                    "by the timing analysis.",
+        },
+        "shaded_band": "16th-84th percentile of delta_A (central 68%)",
+    }
+    prov_path = os.path.join(args.out_dir, "figure_provenance.json")
+    with open(prov_path, "w") as f:
+        _json.dump(provenance, f, indent=2)
+    print(f"Saved provenance: {prov_path}")
+    print("  checkpoint      :", provenance["checkpoint_path"])
+    print("  criterion       :", provenance["criterion"])
+    print("  input length    :", provenance["input_length_samples"], "samples")
+    print("  test split seed :", args.split_seed,
+          f"({provenance['test_split']['n_traces_evaluated']} traces evaluated)")
+
     csv_path = os.path.join(args.out_dir, "amplitude_bias_table.csv")
     write_csv(table, csv_path)
+
+    # Standalone counts table (kept out of the figure to avoid crowding it).
+    write_counts_table(table, cfg, args.out_dir)
 
     npz_path = os.path.join(args.out_dir, "amplitude_bias_per_trace.npz")
     np.savez_compressed(

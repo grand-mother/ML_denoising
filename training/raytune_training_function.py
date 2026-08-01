@@ -432,27 +432,11 @@ def plot_metrics(epochs, training_losses, validation_losses, validation_psnr, le
     plt.close()
 
 def calculate_snr(clean_array, noisy_array):
-    """DEPRECATED (task 3). Full-trace max(clean)/std(noisy) is NOT the paper SNR.
-
-    Use utils.paper_losses_metrics.paper_input_snr instead
-    (max|Hilbert(clean)| / std(noisy off-pulse), channel by channel).
-    Kept only as a thin delegating shim so old callers keep working.
-    """
-    import warnings
-    from utils.paper_losses_metrics import (
-        paper_input_snr, PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH, PRODUCTION_DDOF,
-    )
-    warnings.warn(
-        "calculate_snr is deprecated (task 3); use paper_input_snr.",
-        DeprecationWarning, stacklevel=2,
-    )
-    clean_array = np.asarray(clean_array, dtype=np.float64)
-    noisy_array = np.asarray(noisy_array, dtype=np.float64)
-    return float(paper_input_snr(
-        clean_array[None, :], noisy_array[None, :],
-        exclude_half_width_samples=PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH,
-        ddof=PRODUCTION_DDOF,
-    ).snr[0])
+    """Paper SNR: max(clean) / std(noisy), the standard deviation taken over the
+    FULL trace. This is the definition used throughout the analysis and for every
+    reported figure; keep it identical everywhere."""
+    snr = np.max(clean_array) / np.std(noisy_array)
+    return snr
 
 def plot_snr_distribution(noised_signals, clean_signals, save_folder=None):
     """Plot the distribution of SNRs, separated by channel, using different linestyles."""

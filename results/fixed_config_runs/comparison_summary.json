@@ -1,0 +1,58 @@
+{
+  "description": "Matched time-only vs dual-branch comparison at the multi_v3 production operating point (referee reply4 item 5). Single fixed run per cell, no Ray Tune. Cells differ only by use_freq_branch; everything else (data, seeded split, optimizer, schedule, loss, epoch budget) is shared.",
+  "shared_config": {
+    "trace_length": 512,
+    "time_branch": {
+      "conv_channels": 64,
+      "res_channels": [
+        128,
+        256
+      ]
+    },
+    "decoder_channels_nominal": [
+      128,
+      64,
+      32,
+      3
+    ],
+    "criterion": "multi_l1 (time L1 + |FFT| L1 + wrapped-phase L1)",
+    "mag_weight": 0.01167558670579447,
+    "phase_weight": 0.028892879445242478,
+    "lr": 1.6563229048775545e-05,
+    "max_lr": 0.0005066725384466413,
+    "step_size": 10000,
+    "lr_mode": "triangular2",
+    "weight_decay": 0.0002565942350522923,
+    "batch_size": 1024,
+    "epochs_budget": 100,
+    "split_manifest": "results/fixed_config_runs/split_manifest.npz (seed 12345)",
+    "split_sizes": {
+      "train": 328538,
+      "valid": 41067,
+      "test": 41068
+    }
+  },
+  "dual_branch": {
+    "use_freq_branch": true,
+    "trainable_params": 2096150,
+    "best_epoch": 62,
+    "validation_loss": 16.007060399869594,
+    "validation_psnr_db": 33.84876307045541,
+    "training_loss": 16.354424028010385,
+    "checkpoint": "results/fixed_config_runs/dual_branch/best_model.pth"
+  },
+  "time_only": {
+    "use_freq_branch": false,
+    "trainable_params": 551190,
+    "best_epoch": 62,
+    "validation_loss": 17.17976186333633,
+    "validation_psnr_db": 33.45977569207913,
+    "training_loss": 17.495919082023644,
+    "checkpoint": "results/fixed_config_runs/time_only/best_model.pth"
+  },
+  "comparison": {
+    "val_loss_relative_increase_time_only_vs_dual": 0.07326151299312213,
+    "val_psnr_gain_db_dual_minus_time_only": 0.38898737837628516,
+    "conclusion": "Dual-branch (with Fourier magnitude+phase branches) reaches lower validation loss and higher PSNR than time-only under an identical configuration; the gap is real (monotonic convergence, plateau from epoch ~60 for both), unlike the smaller time_vs_freq_model comparison which showed no measurable gap."
+  }
+}

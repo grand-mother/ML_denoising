@@ -82,27 +82,23 @@ def load_model_from_files(
 
 
 def compute_snr(clean: np.ndarray, noisy: np.ndarray) -> np.ndarray:
-    """DEPRECATED (task 3). Channel-combined max(|clean|)/std(noise) is NOT the
-    paper SNR. Delegates to utils.paper_losses_metrics.paper_input_snr, the single
-    canonical definition (max|Hilbert(clean)| / std(noisy off-pulse), per channel).
+    """Paper SNR: max(clean) / std(noisy), the standard deviation taken over the
+    FULL trace. This is the single definition used throughout the analysis.
 
-    Returns per-channel SNR (N, C). The off-pulse exclusion half-width is the
-    PROVISIONAL task-4 value; record it in figure metadata. New code should call
-    paper_input_snr directly.
+    This convenience form reduces over channels to give one SNR per trace, for
+    coarse bookkeeping only. Figure scripts compute the same quantity per channel
+    from their own clean/noisy arrays.
+
+    Args:
+        clean: (N, C, L) clean waveforms
+        noisy: (N, C, L) noisy waveforms
+
+    Returns:
+        snr: (N,) SNR values
     """
-    import warnings
-    from utils.paper_losses_metrics import (
-        paper_input_snr, PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH, PRODUCTION_DDOF,
-    )
-    warnings.warn(
-        "compute_snr is deprecated (task 3); use paper_input_snr directly.",
-        DeprecationWarning, stacklevel=2,
-    )
-    return paper_input_snr(
-        clean, noisy,
-        exclude_half_width_samples=PRODUCTION_OFFPULSE_EXCLUDE_HALF_WIDTH,
-        ddof=PRODUCTION_DDOF,
-    ).snr
+    clean_peak = np.max(clean, axis=(1, 2))   # (N,)
+    noisy_std = np.std(noisy, axis=(1, 2))    # (N,)
+    return clean_peak / (noisy_std + 1e-12)
 
 def run_inference(
     model: torch.nn.Module,
@@ -120,12 +116,19 @@ def run_inference(
         snr: (N,)
     """
     clean_list, noisy_list, denoised_list = [], [], []
-    
+
+    try:
+        _n_batches = len(data_loader)
+    except TypeError:
+        _n_batches = 0
+
     model.eval()
     with torch.no_grad():
         for batch_idx, (noisy_batch, clean_batch) in enumerate(data_loader):
-            if verbose and (batch_idx + 1) % 500 == 0:
-                print(f"  Processed {batch_idx + 1} batches...")
+            if verbose and (batch_idx + 1) % max(1, _n_batches // 20) == 0:
+                print(f"  Processed {batch_idx + 1}/{_n_batches} batches "
+                      f"({100.0 * (batch_idx + 1) / max(1, _n_batches):.0f}%)...",
+                      flush=True)
             
             noisy_batch = noisy_batch.to(device)
             denoised_batch = model(noisy_batch)
@@ -151,7 +154,11 @@ def load_data_and_run_inference(
     batch_size: int = 32,
     test_only: bool = True,
     max_samples: Optional[int] = None,
-    verbose: bool = True
+    verbose: bool = True,
+    num_workers: int = 8,
+    eval_len: Optional[int] = None,
+    split_seed: Optional[int] = None,
+    manifest_path: Optional[str] = None,
 ) -> EvalPack:
     """
     Complete pipeline: load model, load data, run inference.
@@ -179,10 +186,28 @@ def load_data_and_run_inference(
     noise_signals, clean_signals = produce_noise_and_noiseless_data(data_path)
     
     total_samples = clean_signals.shape[1]
-    train_indices, valid_indices, test_indices = split_indices(
-        total_samples, train_frac=0.8, valid_frac=0.1
-    )
-    
+    if split_seed is None:
+        # Legacy behaviour: split_indices() is UNSEEDED, so the split differs on
+        # every call and cannot be recorded. Prefer split_seed for reproducibility.
+        train_indices, valid_indices, test_indices = split_indices(
+            total_samples, train_frac=0.8, valid_frac=0.1
+        )
+    else:
+        from utils.referee_revision_utils import (
+            deterministic_split_indices, save_evaluation_manifest,
+        )
+        train_indices, valid_indices, test_indices = deterministic_split_indices(
+            total_samples, train_fraction=0.8, valid_fraction=0.1, seed=split_seed
+        )
+        if manifest_path is not None:
+            save_evaluation_manifest(
+                manifest_path, train_indices, valid_indices, test_indices,
+                n_total=total_samples, seed=split_seed,
+                provenance="figure evaluation split",
+            )
+            if verbose:
+                print(f"Saved split manifest: {manifest_path}")
+
     if test_only:
         indices = test_indices
     else:
@@ -199,16 +224,21 @@ def load_data_and_run_inference(
         [noise_signals],
         indices=indices,
         swap_prob=0.0,  # No augmentation for evaluation
-        no_random=True,  # deterministic: no random crop, full 1024 trace
+        no_random=True,   # deterministic: no random crop
+        eval_len=eval_len,  # None = full 1024; set to the training length (512)
+                            # to evaluate the model at the length it was trained on
         target_start=120,
         target_end=480,
         voltage_to_adc=True
     )
     
+    # num_workers > 0 matters a lot here: each __getitem__ does a random read out
+    # of the memory-mapped 10 GB noiseless_traces.npy on a network filesystem, so
+    # single-threaded loading is the throughput bottleneck, not the GPU.
     data_loader = DataLoader(
         dataset,
         batch_size=batch_size,
-        num_workers=0,
+        num_workers=num_workers,
         shuffle=False,
         pin_memory=(device == "cuda")
     )

@@ -1,0 +1,8 @@
+{
+  "validation_loss": 17.17976186333633,
+  "validation_psnr": 33.45977569207913,
+  "training_loss": 17.495919082023644,
+  "epoch": 62,
+  "use_freq_branch": false,
+  "criterion": "multi_l1"
+}
