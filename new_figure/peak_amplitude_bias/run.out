@@ -1,0 +1,118 @@
+**********************************************************************
+*                         SLURM Batch System                         *
+*              IN2P3 Computing Centre, Villeurbanne FR               *
+**********************************************************************
+* Date:                 Sat Aug  1 06:27:03 AM CEST 2026
+* Job name:             ampbias
+* Job id:               55588012
+* User:                 omacias
+* Account:              grand
+* Submit host:          ccahm001
+* Partition:            gpu_v100
+* Quality of service:   gpu
+* Nodelist:             ccwgslurm0113
+* Operating System:     Red Hat Enterprise Linux release 9.8 (Plow)
+* Architecture:         x86_64
+**********************************************************************
+Sat Aug  1 06:27:03 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.173.02             Driver Version: 580.173.02     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla V100-PCIE-32GB           Off |   00000000:18:00.0 Off |                    0 |
+| N/A   30C    P0             24W /  250W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+=== amplitude-bias figure (wrapped-phase model)   ===
+Project root: /pbs/home/o/omacias/Sam_project/raytune_lib_final
+Loading model + held-out test set and running inference...
+SNR definition:
+  numerator   = max |Hilbert(clean)|
+  denominator = off-pulse noisy-trace scale (raw_rms)
+  exclude +/- 64 samples around clean pulse peak
+Loading model...
+Loading simulation data...
+Loaded noise file 0: shape (3, 12500, 1024)
+Noise signals shape: (3, 300000, 1024)
+Clean signals shape: (3, 410673, 1024)
+Saved split manifest: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/peak_amplitude_bias/evaluation_manifest.npz
+Using 41068 samples for evaluation
+Running inference...
+  Processed 8/161 batches (5%)...
+  Processed 16/161 batches (10%)...
+  Processed 24/161 batches (15%)...
+  Processed 32/161 batches (20%)...
+  Processed 40/161 batches (25%)...
+  Processed 48/161 batches (30%)...
+  Processed 56/161 batches (35%)...
+  Processed 64/161 batches (40%)...
+  Processed 72/161 batches (45%)...
+  Processed 80/161 batches (50%)...
+  Processed 88/161 batches (55%)...
+  Processed 96/161 batches (60%)...
+  Processed 104/161 batches (65%)...
+  Processed 112/161 batches (70%)...
+  Processed 120/161 batches (75%)...
+  Processed 128/161 batches (80%)...
+  Processed 136/161 batches (84%)...
+  Processed 144/161 batches (89%)...
+  Processed 152/161 batches (94%)...
+  Processed 160/161 batches (99%)...
+Inference complete. Shape: (41068, 3, 512), SNR range: [0.32, 38.76]
+Inference complete. Shape: (41068, 3, 512), SNR range: [0.32, 38.76]
+Shapes: clean=(41068, 3, 512), noisy=(41068, 3, 512), denoised=(41068, 3, 512)
+Saved provenance: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/peak_amplitude_bias/figure_provenance.json
+  checkpoint      : /sps/grand/macias/Sam_Result/multi_v3_CNN_100epochs_36samples/best_model.pth
+  criterion       : multi_v3
+  input length    : 512 samples
+  test split seed : 12345 (41068 traces evaluated)
+Saved table: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/peak_amplitude_bias/amplitude_bias_table.csv
+Saved counts table: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/peak_amplitude_bias/snr_selected_counts.csv
+Saved counts table: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/peak_amplitude_bias/snr_selected_counts.tex
+
+SNR-selected traces per SNR bin (identical for noisy and denoised):
+         SNR bin       N_X       N_Y       N_Z
+  [  1.0,  2.0)     7,027     7,059     6,250
+  [  2.0,  3.0)     3,963     3,617     3,187
+  [  3.0,  4.0)     2,847     2,575     2,039
+  [  4.0,  5.0)     2,126     2,125     1,397
+  [  5.0,  6.0)     1,708     1,654     1,017
+  [  6.0,  7.0)     1,551     1,504       837
+  [  7.0,  8.0)     1,487     1,517       613
+  [  8.0,  9.0)     1,198     1,422       481
+  [  9.0, 10.0)       821       835       309
+           Total    22,728    22,308    16,130
+Saved per-trace arrays: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/peak_amplitude_bias/amplitude_bias_per_trace.npz
+Saved figure: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/peak_amplitude_bias/amplitude_bias_vs_snr.pdf
+
+Headline summary over plotted SNR bins:
+  median_delta_A = bias
+  sigma68_delta_A = robust scatter
+  X noisy    : median(bias)=+0.017, median(sigma68)=0.113, median(|delta_A|)=0.073
+  X denoised : median(bias)=+0.050, median(sigma68)=0.201, median(|delta_A|)=0.134
+  Y noisy    : median(bias)=+0.017, median(sigma68)=0.113, median(|delta_A|)=0.075
+  Y denoised : median(bias)=+0.141, median(sigma68)=0.255, median(|delta_A|)=0.198
+  Z noisy    : median(bias)=+0.020, median(sigma68)=0.126, median(|delta_A|)=0.080
+  Z denoised : median(bias)=+0.069, median(sigma68)=0.348, median(|delta_A|)=0.228
+****************************************************************
+*                      SLURM Batch System                      *
+*           IN2P3 Computing Centre, Villeurbanne FR            *
+****************************************************************
+Date: Sat Aug  1 06:36:04 AM CEST 2026
+Job informations can be found using these commands:
+Accounting:
+sacct -j 55588012
+Efficiency:
+seff 55588012
+****************************************************************
