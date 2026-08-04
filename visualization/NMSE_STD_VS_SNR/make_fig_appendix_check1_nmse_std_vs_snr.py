@@ -59,7 +59,13 @@ except ImportError:
 @dataclass(frozen=True)
 class Check1Config:
     # sampling
-    dt_ns: float = 2.0
+    # Sampling interval of the simulated traces, in nanoseconds.
+    #
+    # CORRECTED: this defaulted to 2.0 ns, which does not match the 0.5 ns
+    # sampling stated in the paper. dt_ns sets the sampling rate used to design
+    # the band-pass (fs = 1/dt) and converts every *_ns window into samples, so a
+    # wrong value silently shifts both the filtered band and the ROI width.
+    dt_ns: float = 0.5
     eps: float = 1e-12
 
     # ROI around CLEAN peak for NMSE

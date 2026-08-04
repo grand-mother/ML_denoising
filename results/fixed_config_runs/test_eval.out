@@ -1,0 +1,75 @@
+**********************************************************************
+*                         SLURM Batch System                         *
+*              IN2P3 Computing Centre, Villeurbanne FR               *
+**********************************************************************
+* Date:                 Mon Aug  3 11:35:46 PM CEST 2026
+* Job name:             testeval
+* Job id:               55765436
+* User:                 omacias
+* Account:              grand
+* Submit host:          ccahm001
+* Partition:            gpu_v100
+* Quality of service:   gpu
+* Nodelist:             ccwgslurm0101
+* Operating System:     Red Hat Enterprise Linux release 9.8 (Plow)
+* Architecture:         x86_64
+**********************************************************************
+Mon Aug  3 23:35:46 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.173.02             Driver Version: 580.173.02     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla V100-SXM2-32GB           Off |   00000000:18:00.0 Off |                    0 |
+| N/A   37C    P0             42W /  300W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+=== test-split evaluation of the fixed-config pair   ===
+Device: cuda:0
+Shared manifest seed=12345  train/valid/test = 328538/41067/41068
+Evaluating on TEST split: 41068 traces
+Loading data...
+Loaded noise file 0: shape (3, 12500, 1024)
+Noise signals shape: (3, 300000, 1024)
+Clean signals shape: (3, 410673, 1024)
+  [dual_branch] batch 10/41
+  [dual_branch] batch 20/41
+  [dual_branch] batch 30/41
+  [dual_branch] batch 40/41
+
+[dual_branch]  test_loss=16.313962  test_psnr=33.738 dB (validation was 16.007060 / 33.849 dB)
+
+  [time_only] batch 10/41
+  [time_only] batch 20/41
+  [time_only] batch 30/41
+  [time_only] batch 40/41
+
+[time_only]  test_loss=17.574162  test_psnr=33.341 dB (validation was 17.179762 / 33.460 dB)
+
+==================================================================
+Model                           test loss    test PSNR (dB)
+Dual-branch (with Fourier)        16.3140            33.738
+Time-only (no Fourier)            17.5742            33.341
+==================================================================
+Saved: /pbs/home/o/omacias/Sam_project/raytune_lib_final/results/fixed_config_runs/test_split_comparison.json
+****************************************************************
+*                      SLURM Batch System                      *
+*           IN2P3 Computing Centre, Villeurbanne FR            *
+****************************************************************
+Date: Mon Aug  3 11:42:06 PM CEST 2026
+Job informations can be found using these commands:
+Accounting:
+sacct -j 55765436
+Efficiency:
+seff 55765436
+****************************************************************

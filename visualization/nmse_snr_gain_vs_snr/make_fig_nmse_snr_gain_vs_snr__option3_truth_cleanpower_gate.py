@@ -50,15 +50,25 @@ if str(_ROOT) not in _sys.path:
 # SNR here is the paper definition max(clean)/std(noisy) over the full trace,
 # computed inline; no off-pulse helper is imported.
 
-# ML mode support
+# ML mode support. Import through the package path: the bare `common_ml_utils`
+# name only resolves when this script's own directory is on sys.path, so running
+# it from the project root silently disabled ML mode (HAS_ML_UTILS = False) and
+# the --model-path/--metrics-json/--config-json arguments were never registered.
 try:
-    from common_ml_utils import (
-        add_model_arguments, check_model_args, 
+    from visualization.common_ml_utils import (
+        add_model_arguments, check_model_args,
         load_data_and_run_inference
     )
     HAS_ML_UTILS = True
-except ImportError:
-    HAS_ML_UTILS = False
+except ImportError:  # fall back for direct execution inside the script's folder
+    try:
+        from common_ml_utils import (
+            add_model_arguments, check_model_args,
+            load_data_and_run_inference
+        )
+        HAS_ML_UTILS = True
+    except ImportError:
+        HAS_ML_UTILS = False
 
 
 # -----------------------------
@@ -66,8 +76,14 @@ except ImportError:
 # -----------------------------
 @dataclass(frozen=True)
 class FidelityPlotConfig:
-    # Sampling interval
-    dt_ns: float = 2.0
+    # Sampling interval of the simulated traces, in nanoseconds.
+    #
+    # 0.5 ns is the sampling stated in the paper and is the value adopted for
+    # the published revision figures (decision by the corresponding author,
+    # 2026-08-05). Note dt_ns is not cosmetic: it sets the sampling rate used to
+    # design the band-pass (fs = 1/dt) and converts every *_ns window into
+    # samples, so the in-band metrics and the +/-150 ns ROI both depend on it.
+    dt_ns: float = 0.5
 
     # ROI for waveform-fidelity metrics, centered on CLEAN envelope peak
     roi_half_width_ns: float = 150.0
@@ -571,7 +587,16 @@ def main() -> None:
     
     ap.add_argument("--standard-npz", default=None, help="NPZ file with 'standard' key for standard denoiser waveforms")
     
-    ap.add_argument("--dt-ns", type=float, default=2.0, help="Sampling interval in ns.")
+    ap.add_argument("--dt-ns", type=float, default=0.5,
+                    help="Sampling interval in ns (paper value 0.5). Sets the band-pass "
+                         "sampling rate and every ns->sample conversion, so it changes "
+                         "the numbers, not just the axes.")
+    ap.add_argument("--eval-len", type=int, default=512,
+                    help="Deterministic evaluation trace length; 512 = the production "
+                         "training length. Pass 0 for the full 1024-sample trace.")
+    ap.add_argument("--split-seed", type=int, default=12345,
+                    help="Seed for the deterministic 80/10/10 split, so the test set is "
+                         "recorded and reproducible.")
     
     # ROI parameters
     ap.add_argument("--roi-half-width-ns", type=float, default=150.0,
@@ -703,6 +728,12 @@ def main() -> None:
     elif HAS_ML_UTILS and check_model_args(args):
         if not all([args.model_path, args.metrics_json, args.config_json]):
             raise ValueError("ML mode requires --model-path, --metrics-json, --config-json")
+        import os as _os
+        _eval_len = args.eval_len if getattr(args, "eval_len", 0) else None
+        _manifest = None
+        if getattr(args, "out", None):
+            _manifest = _os.path.join(_os.path.dirname(_os.path.abspath(args.out)),
+                                      "evaluation_manifest.npz")
         eval_pack = load_data_and_run_inference(
             model_path=args.model_path,
             metrics_json=args.metrics_json,
@@ -711,6 +742,9 @@ def main() -> None:
             device=args.device,
             batch_size=args.batch_size,
             max_samples=getattr(args, 'max_samples', None),
+            eval_len=_eval_len,
+            split_seed=args.split_seed,
+            manifest_path=_manifest,
         )
         clean = eval_pack.clean
         noisy = eval_pack.noisy

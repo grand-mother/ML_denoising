@@ -417,7 +417,7 @@ res = run_in_notebook(
 
 def get_peak_time(trace):
     # Returns peak time in ns assuming dt=2.0 ns
-    dt_ns = 2.0
+    dt_ns = 0.5   # ns/sample, the value stated in the paper (was 2.0)
     return np.argmax(np.abs(trace), axis=-1) * dt_ns
 
 # Reuse the SNR values computed by run_in_notebook above

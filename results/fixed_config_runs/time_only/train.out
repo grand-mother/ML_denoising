@@ -1,0 +1,213 @@
+**********************************************************************
+*                         SLURM Batch System                         *
+*              IN2P3 Computing Centre, Villeurbanne FR               *
+**********************************************************************
+* Date:                 Wed Jul 29 09:13:43 AM CEST 2026
+* Job name:             timeonly
+* Job id:               55367221
+* User:                 omacias
+* Account:              grand
+* Submit host:          ccahm001
+* Partition:            gpu_v100
+* Quality of service:   gpu
+* Nodelist:             ccwgslurm0108
+* Operating System:     Red Hat Enterprise Linux release 9.8 (Plow)
+* Architecture:         x86_64
+**********************************************************************
+Wed Jul 29 09:13:43 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.173.02             Driver Version: 580.173.02     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla V100-PCIE-32GB           Off |   00000000:18:00.0 Off |                    0 |
+| N/A   32C    P0             26W /  250W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  Tesla V100-PCIE-32GB           Off |   00000000:3B:00.0 Off |                    0 |
+| N/A   33C    P0             28W /  250W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   2  Tesla V100-PCIE-32GB           Off |   00000000:86:00.0 Off |                    0 |
+| N/A   33C    P0             25W /  250W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   3  Tesla V100-PCIE-32GB           Off |   00000000:AF:00.0 Off |                    0 |
+| N/A   32C    P0             26W /  250W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+=== use_freq_branch=false  tag=time_only  epochs=100   ===
+======================================================================
+Fixed-config run: tag=time_only  use_freq_branch=False
+criterion=multi_l1  epochs=100  trace_len=512
+{
+  "lr": 1.6563229048775545e-05,
+  "max_lr": 0.0005066725384466413,
+  "step_size": 10000,
+  "lr_mode": "triangular2",
+  "weight_decay": 0.0002565942350522923,
+  "batch_size": 1024,
+  "mag_weight": 0.01167558670579447,
+  "phase_weight": 0.028892879445242478,
+  "model_config": {
+    "time_branch": {
+      "conv_channels": 64,
+      "res_channels": [
+        128,
+        256
+      ]
+    },
+    "freq_branch": {
+      "conv_channels": 64,
+      "res_channels": [
+        128,
+        256
+      ]
+    },
+    "decoder_channels": [
+      128,
+      64,
+      32,
+      3
+    ],
+    "use_freq_branch": false
+  },
+  "criterion": "multi_l1",
+  "epochs": 100,
+  "model_type": "CNN",
+  "trace_length": 512,
+  "use_freq_branch": false
+}
+======================================================================
+Loading data...
+Loaded noise file 0: shape (3, 12500, 1024)
+Noise signals shape: (3, 300000, 1024)
+Clean signals shape: (3, 410673, 1024)
+Reusing shared manifest: /pbs/home/o/omacias/Sam_project/raytune_lib_final/results/fixed_config_runs/split_manifest.npz
+train=328538  valid=41067
+Trainable parameters: 551,190
+DataParallel over 4 GPUs
+epoch   0/100  train=77.430231  val=71.613124  psnr=25.724 dB  (0.5 min)  <- best
+epoch   1/100  train=58.988038  val=47.219846  psnr=27.288 dB  (0.8 min)  <- best
+epoch   2/100  train=41.158838  val=39.970995  psnr=28.316 dB  (1.1 min)  <- best
+epoch   3/100  train=36.928702  val=36.348596  psnr=28.887 dB  (1.4 min)  <- best
+epoch   4/100  train=34.285541  val=33.383001  psnr=29.731 dB  (1.7 min)  <- best
+epoch   5/100  train=31.724289  val=30.945111  psnr=30.505 dB  (2.0 min)  <- best
+epoch   6/100  train=30.084615  val=29.303975  psnr=30.877 dB  (2.3 min)  <- best
+epoch   7/100  train=28.987552  val=27.966680  psnr=31.148 dB  (2.6 min)  <- best
+epoch   8/100  train=28.095086  val=27.368360  psnr=31.263 dB  (2.9 min)  <- best
+epoch   9/100  train=27.481024  val=27.257997  psnr=31.332 dB  (3.2 min)  <- best
+epoch  10/100  train=26.910102  val=26.059964  psnr=31.549 dB  (3.5 min)  <- best
+epoch  11/100  train=26.318464  val=26.335398  psnr=31.447 dB  (3.8 min)
+epoch  12/100  train=25.948465  val=25.621051  psnr=31.591 dB  (4.1 min)  <- best
+epoch  13/100  train=25.407387  val=25.967158  psnr=31.484 dB  (4.4 min)
+epoch  14/100  train=25.106750  val=24.069888  psnr=31.921 dB  (4.7 min)  <- best
+epoch  15/100  train=24.577061  val=23.968915  psnr=31.868 dB  (5.0 min)  <- best
+epoch  16/100  train=24.367580  val=23.364253  psnr=31.937 dB  (5.3 min)  <- best
+epoch  17/100  train=23.952727  val=23.001343  psnr=32.091 dB  (5.6 min)  <- best
+epoch  18/100  train=23.756681  val=23.189964  psnr=31.944 dB  (5.9 min)
+epoch  19/100  train=23.407649  val=23.064005  psnr=32.012 dB  (6.2 min)
+epoch  20/100  train=23.183208  val=22.477230  psnr=32.172 dB  (6.5 min)  <- best
+epoch  21/100  train=23.039907  val=22.279438  psnr=32.158 dB  (6.8 min)  <- best
+epoch  22/100  train=22.615814  val=21.914769  psnr=32.282 dB  (7.1 min)  <- best
+epoch  23/100  train=22.639225  val=22.091931  psnr=32.226 dB  (7.5 min)
+epoch  24/100  train=22.391408  val=21.444729  psnr=32.397 dB  (7.8 min)  <- best
+epoch  25/100  train=22.233250  val=21.443378  psnr=32.412 dB  (8.1 min)  <- best
+epoch  26/100  train=22.089423  val=21.927468  psnr=32.210 dB  (8.4 min)
+epoch  27/100  train=21.949761  val=20.692398  psnr=32.552 dB  (8.7 min)  <- best
+epoch  28/100  train=21.771963  val=21.783942  psnr=32.220 dB  (9.0 min)
+epoch  29/100  train=21.646519  val=21.128664  psnr=32.401 dB  (9.3 min)
+epoch  30/100  train=21.477220  val=21.009671  psnr=32.366 dB  (9.6 min)
+epoch  31/100  train=21.263242  val=20.460802  psnr=32.627 dB  (9.9 min)  <- best
+epoch  32/100  train=21.029572  val=20.401348  psnr=32.600 dB  (10.2 min)  <- best
+epoch  33/100  train=20.796227  val=20.034013  psnr=32.707 dB  (10.5 min)  <- best
+epoch  34/100  train=20.637097  val=20.431870  psnr=32.587 dB  (10.8 min)
+epoch  35/100  train=20.469146  val=19.883194  psnr=32.693 dB  (11.1 min)  <- best
+epoch  36/100  train=20.223813  val=20.200025  psnr=32.612 dB  (11.4 min)
+epoch  37/100  train=20.206599  val=19.417706  psnr=32.826 dB  (11.7 min)  <- best
+epoch  38/100  train=19.839786  val=19.070196  psnr=32.981 dB  (12.0 min)  <- best
+epoch  39/100  train=19.781796  val=19.243963  psnr=32.935 dB  (12.3 min)
+epoch  40/100  train=19.667433  val=19.350120  psnr=32.830 dB  (12.6 min)
+epoch  41/100  train=19.544387  val=19.487116  psnr=32.774 dB  (12.9 min)
+epoch  42/100  train=19.425383  val=18.867817  psnr=33.027 dB  (13.2 min)  <- best
+epoch  43/100  train=19.286190  val=18.672214  psnr=33.098 dB  (13.5 min)  <- best
+epoch  44/100  train=19.079169  val=18.640618  psnr=33.059 dB  (13.8 min)  <- best
+epoch  45/100  train=19.073431  val=18.421830  psnr=33.129 dB  (14.1 min)  <- best
+epoch  46/100  train=18.879707  val=18.415813  psnr=33.096 dB  (14.4 min)  <- best
+epoch  47/100  train=18.818951  val=18.230341  psnr=33.200 dB  (14.7 min)  <- best
+epoch  48/100  train=18.703059  val=18.182578  psnr=33.222 dB  (15.0 min)  <- best
+epoch  49/100  train=18.595106  val=18.198712  psnr=33.168 dB  (15.4 min)
+epoch  50/100  train=18.484206  val=18.009393  psnr=33.238 dB  (15.7 min)  <- best
+epoch  51/100  train=18.378045  val=18.071098  psnr=33.227 dB  (16.0 min)
+epoch  52/100  train=18.339274  val=17.819325  psnr=33.282 dB  (16.3 min)  <- best
+epoch  53/100  train=18.213873  val=17.750020  psnr=33.318 dB  (16.6 min)  <- best
+epoch  54/100  train=18.122547  val=17.713647  psnr=33.314 dB  (16.9 min)  <- best
+epoch  55/100  train=18.060395  val=17.535999  psnr=33.382 dB  (17.2 min)  <- best
+epoch  56/100  train=17.918664  val=17.543903  psnr=33.386 dB  (17.5 min)
+epoch  57/100  train=17.882437  val=17.467680  psnr=33.408 dB  (17.8 min)  <- best
+epoch  58/100  train=17.813667  val=17.373902  psnr=33.418 dB  (18.1 min)  <- best
+epoch  59/100  train=17.703349  val=17.307692  psnr=33.437 dB  (18.4 min)  <- best
+epoch  60/100  train=17.608410  val=17.254941  psnr=33.433 dB  (18.7 min)  <- best
+epoch  61/100  train=17.560258  val=17.186820  psnr=33.465 dB  (19.0 min)  <- best
+epoch  62/100  train=17.495919  val=17.179762  psnr=33.460 dB  (19.3 min)  <- best
+epoch  63/100  train=17.513165  val=17.193296  psnr=33.466 dB  (19.6 min)
+epoch  64/100  train=17.534616  val=17.196256  psnr=33.456 dB  (19.9 min)
+epoch  65/100  train=17.554002  val=17.261520  psnr=33.455 dB  (20.2 min)
+epoch  66/100  train=17.585569  val=17.205549  psnr=33.467 dB  (20.5 min)
+epoch  67/100  train=17.588668  val=17.212879  psnr=33.453 dB  (20.8 min)
+epoch  68/100  train=17.629553  val=17.365684  psnr=33.435 dB  (21.1 min)
+epoch  69/100  train=17.638751  val=17.293276  psnr=33.426 dB  (21.4 min)
+epoch  70/100  train=17.657988  val=17.357010  psnr=33.413 dB  (21.7 min)
+epoch  71/100  train=17.679449  val=17.309593  psnr=33.444 dB  (22.1 min)
+epoch  72/100  train=17.693401  val=17.298071  psnr=33.458 dB  (22.4 min)
+epoch  73/100  train=17.697411  val=17.379786  psnr=33.436 dB  (22.7 min)
+epoch  74/100  train=17.742749  val=17.368658  psnr=33.424 dB  (23.0 min)
+epoch  75/100  train=17.771737  val=17.278611  psnr=33.463 dB  (23.3 min)
+epoch  76/100  train=17.753782  val=17.422982  psnr=33.420 dB  (23.6 min)
+epoch  77/100  train=17.790485  val=17.453577  psnr=33.389 dB  (23.9 min)
+epoch  78/100  train=17.829791  val=17.475117  psnr=33.417 dB  (24.2 min)
+epoch  79/100  train=17.802637  val=17.561515  psnr=33.353 dB  (24.5 min)
+epoch  80/100  train=17.846793  val=17.427812  psnr=33.423 dB  (24.8 min)
+epoch  81/100  train=17.873733  val=17.803642  psnr=33.279 dB  (25.1 min)
+epoch  82/100  train=17.887965  val=17.607025  psnr=33.343 dB  (25.4 min)
+epoch  83/100  train=17.868384  val=17.423513  psnr=33.417 dB  (25.7 min)
+epoch  84/100  train=17.880473  val=17.538074  psnr=33.380 dB  (25.9 min)
+epoch  85/100  train=17.938397  val=17.440197  psnr=33.434 dB  (26.3 min)
+epoch  86/100  train=17.918951  val=17.652385  psnr=33.266 dB  (26.6 min)
+epoch  87/100  train=17.915626  val=17.662132  psnr=33.357 dB  (26.9 min)
+epoch  88/100  train=17.916551  val=17.547823  psnr=33.401 dB  (27.2 min)
+epoch  89/100  train=17.969498  val=17.377868  psnr=33.470 dB  (27.5 min)
+epoch  90/100  train=17.975254  val=17.863146  psnr=33.270 dB  (27.8 min)
+epoch  91/100  train=17.994840  val=17.684945  psnr=33.349 dB  (28.1 min)
+epoch  92/100  train=18.006006  val=17.448196  psnr=33.447 dB  (28.4 min)
+epoch  93/100  train=17.955284  val=17.656146  psnr=33.402 dB  (28.7 min)
+epoch  94/100  train=17.937281  val=17.290730  psnr=33.478 dB  (29.0 min)
+epoch  95/100  train=17.850038  val=17.351683  psnr=33.466 dB  (29.3 min)
+epoch  96/100  train=17.817504  val=17.470989  psnr=33.435 dB  (29.6 min)
+epoch  97/100  train=17.750992  val=17.331875  psnr=33.454 dB  (29.9 min)
+epoch  98/100  train=17.735832  val=17.212619  psnr=33.504 dB  (30.2 min)
+epoch  99/100  train=17.684604  val=17.192756  psnr=33.500 dB  (30.5 min)
+
+Done in 0.51 h. Best val loss 17.179762
+Saved to /pbs/home/o/omacias/Sam_project/raytune_lib_final/results/fixed_config_runs/time_only
+****************************************************************
+*                      SLURM Batch System                      *
+*           IN2P3 Computing Centre, Villeurbanne FR            *
+****************************************************************
+Date: Wed Jul 29 09:44:30 AM CEST 2026
+Job informations can be found using these commands:
+Accounting:
+sacct -j 55367221
+Efficiency:
+seff 55367221
+****************************************************************

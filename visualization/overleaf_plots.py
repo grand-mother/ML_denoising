@@ -692,7 +692,9 @@ def traces_plot_time_frequency(testloader,
                    num_images = 50, 
                    device="cpu", 
                    save_path = '',
-                   dt_ns = 1.0,
+                   dt_ns = _DT_NS,   # 0.5 ns/sample, the value stated in the paper
+                                     # (was 1.0, which mislabelled both the time and
+                                     #  the frequency axis of this figure)
                    x_channel_snr = 4.0,
                    y_channel_snr = 3.0,
                    z_channel_snr = 2.0,
@@ -1832,7 +1834,9 @@ def ablation_peak_time_efficiency_comparison(
     min_snr: float = 1.0,
     max_snr: float = 15.0,
     snr_bins_count: int = 14,
-    dt_ns: float = 2.0,
+    dt_ns: float = _DT_NS,   # 0.5 ns/sample, the value stated in the paper (was 2.0).
+                             # Peak times here are argmax(envelope) * dt_ns, so this
+                             # also rescales the |dt| <= time_tolerance_ns selection.
     time_tolerance_ns: float = 10.0,
     save_path: str = "",
 ):

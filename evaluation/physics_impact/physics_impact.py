@@ -243,7 +243,7 @@ def plot_usable_antennas_single_panel(
     hilbert_traces,
     amp_threshold=2.0,
     t_max_ns_list=[10.0, 20.0],
-    dt_ns=1.0,
+    dt_ns=0.5,   # ns/sample, the value stated in the paper (was 1.0)
     snr_min=1.0,
     snr_max=10.0,
     snr_step=0.5,
@@ -567,7 +567,7 @@ def main():
         hilbert_traces=hilbert_traces,
         amp_threshold=args.amp_threshold,
         t_max_ns_list=[10.0],
-        dt_ns=1.0,
+        dt_ns=0.5,   # ns/sample, the value stated in the paper (was 1.0)
         snr_min=args.snr_min,
         snr_max=args.snr_max,
         snr_step=args.snr_step,

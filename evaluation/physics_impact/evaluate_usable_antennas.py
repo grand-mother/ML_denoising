@@ -124,7 +124,7 @@ def number_of_usable_antennas(test_loader, model, model_path, device="cpu",
         print(f"\nTotal traces shape: {clean_traces.shape} (N_traces, T_samples)")
         
         # Evaluate usable antennas
-        dt_ns = 1.0
+        dt_ns = 0.5   # ns/sample, the value stated in the paper (was 1.0)
         noise_slice = slice(0, 512)  # First 512 samples are noise-only
         
         print(f"\nEvaluating usable antennas...")

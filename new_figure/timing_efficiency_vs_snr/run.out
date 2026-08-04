@@ -1,0 +1,60 @@
+**********************************************************************
+*                         SLURM Batch System                         *
+*              IN2P3 Computing Centre, Villeurbanne FR               *
+**********************************************************************
+* Date:                 Thu Jul 30 03:08:19 AM CEST 2026
+* Job name:             timingfig
+* Job id:               55413386
+* User:                 omacias
+* Account:              grand
+* Submit host:          ccahm002
+* Partition:            gpu_v100
+* Quality of service:   gpu
+* Nodelist:             ccwgslurm0107
+* Operating System:     Red Hat Enterprise Linux release 9.8 (Plow)
+* Architecture:         x86_64
+**********************************************************************
+Thu Jul 30 03:08:19 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.173.02             Driver Version: 580.173.02     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla V100-PCIE-32GB           Off |   00000000:18:00.0 Off |                    0 |
+| N/A   32C    P0             27W /  250W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+=== regenerating timing figure   ===
+Checkpoint: /sps/grand/macias/Sam_Result/multi_v3_CNN_100epochs_36samples
+criterion=multi_v3  model_config={'time_branch': {'conv_channels': 64, 'res_channels': [128, 256]}, 'freq_branch': {'conv_channels': 64, 'res_channels': [128, 256]}, 'decoder_channels': [128, 64, 32, 3]}
+Loading data...
+Loaded noise file 0: shape (3, 12500, 1024)
+Noise signals shape: (3, 300000, 1024)
+Clean signals shape: (3, 410673, 1024)
+Reusing manifest: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/timing_efficiency_vs_snr/evaluation_manifest.npz
+Test traces: 41068
+Running timing analysis (this loads the checkpoint internally)...
+
+Done. Figure written under: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/timing_efficiency_vs_snr
+  Peak_Time_Efficiency_All_Channels.pdf
+****************************************************************
+*                      SLURM Batch System                      *
+*           IN2P3 Computing Centre, Villeurbanne FR            *
+****************************************************************
+Date: Thu Jul 30 03:24:46 AM CEST 2026
+Job informations can be found using these commands:
+Accounting:
+sacct -j 55413386
+Efficiency:
+seff 55413386
+****************************************************************
