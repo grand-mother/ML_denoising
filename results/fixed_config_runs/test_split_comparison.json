@@ -1,0 +1,33 @@
+{
+  "split": "test",
+  "manifest": "/pbs/home/o/omacias/Sam_project/raytune_lib_final/results/fixed_config_runs/split_manifest.npz",
+  "manifest_seed": 12345,
+  "trace_length": 512,
+  "note": "Inference only; no retraining. Both cells share the same test indices and identical deterministic preprocessing, and differ only by use_freq_branch.",
+  "dual_branch": {
+    "use_freq_branch": true,
+    "criterion": "multi_l1",
+    "checkpoint": "/pbs/home/o/omacias/Sam_project/raytune_lib_final/results/fixed_config_runs/dual_branch/best_model.pth",
+    "n_test_traces": 41068,
+    "test_loss": 16.313961959466702,
+    "test_psnr_db": 33.73776226508908,
+    "validation_loss_for_reference": 16.007060399869594,
+    "validation_psnr_db_for_reference": 33.84876307045541,
+    "selected_epoch": 62
+  },
+  "time_only": {
+    "use_freq_branch": false,
+    "criterion": "multi_l1",
+    "checkpoint": "/pbs/home/o/omacias/Sam_project/raytune_lib_final/results/fixed_config_runs/time_only/best_model.pth",
+    "n_test_traces": 41068,
+    "test_loss": 17.57416164584276,
+    "test_psnr_db": 33.34103961107208,
+    "validation_loss_for_reference": 17.17976186333633,
+    "validation_psnr_db_for_reference": 33.45977569207913,
+    "selected_epoch": 62
+  },
+  "comparison": {
+    "test_loss_relative_increase_time_only_vs_dual": 0.07724669761441896,
+    "test_psnr_gain_db_dual_minus_time_only": 0.3967226540170046
+  }
+}
