@@ -1,0 +1,79 @@
+**********************************************************************
+*                         SLURM Batch System                         *
+*              IN2P3 Computing Centre, Villeurbanne FR               *
+**********************************************************************
+* Date:                 Tue Aug  4 12:25:39 AM CEST 2026
+* Job name:             appendixfig
+* Job id:               55766425
+* User:                 omacias
+* Account:              grand
+* Submit host:          ccahm001
+* Partition:            gpu_v100
+* Quality of service:   gpu
+* Nodelist:             ccwgslurm0100
+* Operating System:     Red Hat Enterprise Linux release 9.8 (Plow)
+* Architecture:         x86_64
+**********************************************************************
+Tue Aug  4 00:25:39 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.173.02             Driver Version: 580.173.02     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla V100-SXM2-32GB           Off |   00000000:18:00.0 Off |                    0 |
+| N/A   37C    P0             40W /  300W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+=== appendix NMSE / SNR-gain figure (dt=0.5 ns, paper SNR)   ===
+Loading model...
+Loading simulation data...
+Loaded noise file 0: shape (3, 12500, 1024)
+Noise signals shape: (3, 300000, 1024)
+Clean signals shape: (3, 410673, 1024)
+Saved split manifest: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/appendix_nmse_snr_gain/evaluation_manifest.npz
+Using 41068 samples for evaluation
+Running inference...
+  Processed 8/161 batches (5%)...
+  Processed 16/161 batches (10%)...
+  Processed 24/161 batches (15%)...
+  Processed 32/161 batches (20%)...
+  Processed 40/161 batches (25%)...
+  Processed 48/161 batches (30%)...
+  Processed 56/161 batches (35%)...
+  Processed 64/161 batches (40%)...
+  Processed 72/161 batches (45%)...
+  Processed 80/161 batches (50%)...
+  Processed 88/161 batches (55%)...
+  Processed 96/161 batches (60%)...
+  Processed 104/161 batches (65%)...
+  Processed 112/161 batches (70%)...
+  Processed 120/161 batches (75%)...
+  Processed 128/161 batches (80%)...
+  Processed 136/161 batches (84%)...
+  Processed 144/161 batches (89%)...
+  Processed 152/161 batches (94%)...
+  Processed 160/161 batches (99%)...
+Inference complete. Shape: (41068, 3, 512), SNR range: [0.32, 38.76]
+Inference complete. Shape: (41068, 3, 512), SNR range: [0.32, 38.76]
+Saved: /pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/appendix_nmse_snr_gain/nmse_snr_gain_vs_snr.pdf
+****************************************************************
+*                      SLURM Batch System                      *
+*           IN2P3 Computing Centre, Villeurbanne FR            *
+****************************************************************
+Date: Tue Aug  4 12:26:33 AM CEST 2026
+Job informations can be found using these commands:
+Accounting:
+sacct -j 55766425
+Efficiency:
+seff 55766425
+****************************************************************
