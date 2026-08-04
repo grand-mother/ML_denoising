@@ -82,9 +82,9 @@ purely a units relabel, as requested.
 
 One related correction: `ablation_peak_time_efficiency_comparison` computes its peak times as
 `argmax(envelope) * dt_ns`, i.e. genuinely in nanoseconds, so its axis label was restored to
-"ns" (an earlier blanket relabel to "samples" had made it wrong). Note its own `dt_ns`
-default is **2.0**, inconsistent with the 0.5 ns established here — changing it would alter
-that figure's content, not just its label, so it is flagged rather than silently changed.
+"ns" (an earlier blanket relabel to "samples" had made it wrong). Its own `dt_ns` default was
+**2.0** and has now been corrected to 0.5 along with every other `dt_ns` in the repository —
+see item 7, which also records that this changes that figure's content, not only its label.
 
 ---
 
@@ -247,18 +247,30 @@ is intentional: the phase term uses the **wrapped** residual (`atan2(sin Δφ, c
 corrected residual from reply2, not the archived direct-phase term — both cells use the same
 loss, so the paired comparison is unaffected either way.
 
-**Result (both runs completed cleanly, 100/100 epochs, no NaNs; best epoch 62 for both):**
+**Result on the held-out TEST split** (both runs completed cleanly, 100/100 epochs, no
+NaNs; best epoch 62 for both). The first version of this table was computed on the
+validation split — the split used for checkpoint selection — which is not an unbiased
+estimate. It has been replaced by the **test** split, evaluated by inference only with no
+retraining (`evaluation/evaluate_fixed_config_test.py`, 41,068 traces):
 
-| Model | Val loss (multi_l1) | Val PSNR (dB) |
+| Model | Test loss (multi_l1) | Test PSNR (dB) |
 |---|---|---|
-| Dual-branch (with Fourier) | **16.007** | **33.849** |
-| Time-only (no Fourier) | 17.180 | 33.460 |
+| Dual-branch (with Fourier) | **16.314** | **33.738** |
+| Time-only (no Fourier) | 17.574 | 33.341 |
 
-Dual-branch reaches **6.8 % lower validation loss and +0.39 dB PSNR** than time-only under
-an otherwise identical configuration — a real, reproducible gap (both curves decrease
-monotonically and plateau around epoch 60; not noise). This differs from the earlier
-`time_vs_freq_model` comparison (compact conv 32/16 models), which showed no measurable
-gap; at the production model capacity, the Fourier branches do help.
+Dual-branch reaches **7.7 % lower test loss and +0.40 dB PSNR** than time-only under an
+otherwise identical configuration. Both cells were evaluated on the **same** test indices
+from the shared seeded manifest with identical deterministic preprocessing (fixed
+512-sample window, no random crop, no swap augmentation), so the comparison is paired.
+
+For reference, the validation numbers were 16.007 / 33.849 dB (dual-branch) and
+17.180 / 33.460 dB (time-only): the test values are slightly worse for both cells, as
+expected, and the gap between them is essentially unchanged (6.8 % → 7.7 % in loss,
++0.39 → +0.40 dB in PSNR). The conclusion is therefore not an artefact of the split.
+
+This differs from the earlier `time_vs_freq_model` comparison (compact conv 32/16 models),
+which showed no measurable gap; at the production model capacity, the Fourier branches do
+help. Full record: `results/fixed_config_runs/test_split_comparison.json`.
 
 Checkpoints, per-epoch metrics, and configs: `results/fixed_config_runs/{dual_branch,time_only}/`.
 
@@ -301,3 +313,53 @@ for `multi_v3`** (only `multi_v4` uses it), so it should be omitted or marked in
 effective architecture (fusion 384, decoder [384,64,32,3], 2 max-pools/branch, 512 input,
 no clipping, no taper) and the other selected hyperparameters in reply3 §6 are confirmed
 correct.
+
+---
+
+# Reply — item 7: sampling interval `dt_ns` (paper says 0.5 ns, code defaulted to 2.0)
+
+**Question.** The paper states 0.5 ns sampling, but the appendix plotting script defaults to
+`dt_ns = 2.0`. Please clarify in the article and in the code.
+
+**Answer: the code was wrong, and it was not merely a labelling issue.** The paper's 0.5 ns
+is correct. `dt_ns` is used for two things that change the numbers, not just the axes:
+
+1. **It sets the sampling rate used to design the band-pass**, `fs = 1/dt`. The filter is
+   built with `butter(order, [50 MHz, 200 MHz], fs=fs)`. With `dt_ns = 2.0` the filter was
+   designed for `fs = 500 MHz` (Nyquist 250 MHz), i.e. normalised cut-offs 0.20 and 0.80 of
+   Nyquist. Applied to data that are really sampled at 2 GHz (Nyquist 1 GHz), those same
+   normalised cut-offs correspond to an **actual pass-band of ≈ 200–800 MHz**, not
+   50–200 MHz. The "band-limited 50–200 MHz" appendix metrics were therefore computed
+   through the wrong band.
+2. **It converts every `*_ns` window into samples.** The ±150 ns fidelity ROI was
+   `round(150/2.0) = 75` samples; at the correct 0.5 ns it is `round(150/0.5) = 300`
+   samples — a factor of four wider.
+
+**Fix applied — `dt_ns = 0.5` everywhere,** with an explanatory comment at each site:
+
+| File | Was | Now |
+|---|---|---|
+| `visualization/nmse_snr_gain_vs_snr/..._option3_....py` | `dt_ns: float = 2.0` | **0.5** |
+| `visualization/NMSE_STD_VS_SNR/make_fig_appendix_check1_nmse_std_vs_snr.py` | `2.0` | **0.5** |
+| `visualization/plot_usable_antenna_vs_SNR/make_fig_event_multiplicity_usable_nmse.py` | `2.0` | **0.5** |
+| `visualization/overleaf_plots.py::traces_plot_time_frequency` | `1.0` | **0.5** |
+| `visualization/overleaf_plots.py::ablation_peak_time_efficiency_comparison` | `2.0` | **0.5** |
+| `visualization/time_vs_freq_model/time_freq.py` | `2.0` | **0.5** |
+| `evaluation/physics_impact/physics_impact.py` (2 sites), `evaluate_usable_antennas.py` | `1.0` | **0.5** |
+
+A single module constant `_DT_NS = 0.5` in `overleaf_plots.py` is the reference value there;
+the standalone figure scripts carry it in their own config dataclass.
+
+**Consequences to note in the article.**
+
+- The example waveform/spectrum figure (`traces_plot_time_frequency`) previously used
+  `dt_ns = 1.0`, so its **time axis was a factor of two too long and its frequency axis a
+  factor of two too low**. Regenerating it with 0.5 ns fixes both axes; the underlying
+  traces are unchanged.
+- The **appendix band-limited figures change in content**, not only in labelling, because
+  both the pass-band and the ROI width were wrong. They should be regenerated before
+  submission if they are retained. No retraining is involved.
+- One point for the text: with 0.5 ns sampling, a ±150 ns ROI spans 601 samples, which is
+  most of a 1024-sample trace. If the intent was a narrower window, `roi_half_width_ns`
+  should be revisited; the value is stated here so the choice is explicit rather than
+  implicit in a wrong `dt`.
