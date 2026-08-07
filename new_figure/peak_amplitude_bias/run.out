@@ -2,19 +2,19 @@
 *                         SLURM Batch System                         *
 *              IN2P3 Computing Centre, Villeurbanne FR               *
 **********************************************************************
-* Date:                 Sat Aug  1 06:27:03 AM CEST 2026
+* Date:                 Fri Aug  7 08:49:55 PM CEST 2026
 * Job name:             ampbias
-* Job id:               55588012
+* Job id:               56119422
 * User:                 omacias
 * Account:              grand
-* Submit host:          ccahm001
+* Submit host:          ccahm002
 * Partition:            gpu_v100
 * Quality of service:   gpu
 * Nodelist:             ccwgslurm0113
 * Operating System:     Red Hat Enterprise Linux release 9.8 (Plow)
 * Architecture:         x86_64
 **********************************************************************
-Sat Aug  1 06:27:03 2026       
+Fri Aug  7 20:49:55 2026       
 +-----------------------------------------------------------------------------------------+
 | NVIDIA-SMI 580.173.02             Driver Version: 580.173.02     CUDA Version: 13.0     |
 +-----------------------------------------+------------------------+----------------------+
@@ -100,19 +100,19 @@ Headline summary over plotted SNR bins:
   median_delta_A = bias
   sigma68_delta_A = robust scatter
   X noisy    : median(bias)=+0.017, median(sigma68)=0.113, median(|delta_A|)=0.073
-  X denoised : median(bias)=+0.050, median(sigma68)=0.201, median(|delta_A|)=0.134
+  X denoised : median(bias)=-0.025, median(sigma68)=0.113, median(|delta_A|)=0.074
   Y noisy    : median(bias)=+0.017, median(sigma68)=0.113, median(|delta_A|)=0.075
-  Y denoised : median(bias)=+0.141, median(sigma68)=0.255, median(|delta_A|)=0.198
+  Y denoised : median(bias)=-0.019, median(sigma68)=0.120, median(|delta_A|)=0.077
   Z noisy    : median(bias)=+0.020, median(sigma68)=0.126, median(|delta_A|)=0.080
-  Z denoised : median(bias)=+0.069, median(sigma68)=0.348, median(|delta_A|)=0.228
+  Z denoised : median(bias)=-0.025, median(sigma68)=0.070, median(|delta_A|)=0.048
 ****************************************************************
 *                      SLURM Batch System                      *
 *           IN2P3 Computing Centre, Villeurbanne FR            *
 ****************************************************************
-Date: Sat Aug  1 06:36:04 AM CEST 2026
+Date: Fri Aug  7 08:54:57 PM CEST 2026
 Job informations can be found using these commands:
 Accounting:
-sacct -j 55588012
+sacct -j 56119422
 Efficiency:
-seff 55588012
+seff 56119422
 ****************************************************************

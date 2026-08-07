@@ -800,8 +800,10 @@ def traces_plot_time_frequency(testloader,
                     ax_time = axes[channel_idx, 0]
                     
                     # Plot the traces
-                    ax_time.plot(time_bin, noisy_np, label='Noisy', linestyle='--', color='red', alpha=0.9, linewidth=1.5)
-                    ax_time.plot(time_bin, clean_np, label='True', color='black', linestyle=':', alpha=0.7, linewidth=1.5)
+                    # Colours match the published version of this figure:
+                    # Noisy orange dashed, True red dotted, Denoised blue solid.
+                    ax_time.plot(time_bin, noisy_np, label='Noisy', linestyle='--', color='orange', alpha=0.9, linewidth=1.5)
+                    ax_time.plot(time_bin, clean_np, label='True', color='red', linestyle=':', alpha=0.7, linewidth=1.5)
                     ax_time.plot(time_bin, denoised_np, label='Denoised', color='blue', linestyle='-', alpha=0.5, linewidth=1.5)
                     
                     # Set zoom around peak
@@ -846,8 +848,8 @@ def traces_plot_time_frequency(testloader,
                     mag_denoised = np.abs(fft_denoised) / signal_length
                     
                     # Plot frequency domain
-                    ax_freq.semilogy(freqs_mhz, mag_noisy, label='Noisy', linestyle='--', color='red', alpha=0.9, linewidth=1.5)
-                    ax_freq.semilogy(freqs_mhz, mag_clean, label='True', color='black', linestyle=':', alpha=0.7, linewidth=1.5)
+                    ax_freq.semilogy(freqs_mhz, mag_noisy, label='Noisy', linestyle='--', color='orange', alpha=0.9, linewidth=1.5)
+                    ax_freq.semilogy(freqs_mhz, mag_clean, label='True', color='red', linestyle=':', alpha=0.7, linewidth=1.5)
                     ax_freq.semilogy(freqs_mhz, mag_denoised, label='Denoised', color='blue', linestyle='-', alpha=0.5, linewidth=1.5)
                     
                     # Set frequency range (adjust based on your needs, e.g., 50-350 MHz from image)

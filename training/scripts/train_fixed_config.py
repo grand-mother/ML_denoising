@@ -106,6 +106,11 @@ def main() -> None:
 
     config = json.loads(json.dumps(PRODUCTION_CONFIG))  # deep copy
     config["model_config"]["use_freq_branch"] = use_freq
+    # Record the fusion wiring explicitly so evaluation reconstructs the exact
+    # architecture. The existing fixed-config cells were trained with the
+    # 'global_pool' wiring; the archived production checkpoints use 'spectral'
+    # (the DualBranchAutoencoder default).
+    config["model_config"]["freq_fusion"] = "global_pool"
     config["criterion"] = args.criterion
     config["epochs"] = args.epochs
     config["model_type"] = "CNN"

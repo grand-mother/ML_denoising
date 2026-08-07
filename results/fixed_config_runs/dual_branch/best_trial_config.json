@@ -28,7 +28,8 @@
       32,
       3
     ],
-    "use_freq_branch": true
+    "use_freq_branch": true,
+    "freq_fusion": "global_pool"
   },
   "criterion": "multi_l1",
   "epochs": 100,

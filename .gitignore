@@ -60,3 +60,21 @@ Thumbs.db
 *.tmp
 *.temp
 *.bak
+
+# --- Referee-revision deliverables -------------------------------------------
+# The rules above exclude *.pdf / *.npz / *.out repo-wide. The revision has to
+# ship the actual artifacts (figures, split manifests, run logs), not only the
+# scripts that would regenerate them, so the delivery directories are re-included.
+!new_figure/**/*.pdf
+!new_figure/**/*.npz
+!new_figure/**/*.out
+!results/fixed_config_runs/**/*.out
+# The seeded split manifest that test_split_comparison.json points to. Without it
+# the "both cells used the same test indices" claim in reply4 item 5 cannot be
+# checked by anyone else. Model weights (*.pth) stay excluded deliberately.
+!results/fixed_config_runs/**/*.npz
+
+# Superseded runs kept only as a local record. Never shipped: the re-inclusions
+# above are scoped to new_figure/, so a withdrawn figure must live outside it or
+# `git add new_figure/` would sweep it back in.
+deprecated/

@@ -2,19 +2,19 @@
 *                         SLURM Batch System                         *
 *              IN2P3 Computing Centre, Villeurbanne FR               *
 **********************************************************************
-* Date:                 Thu Jul 30 03:08:19 AM CEST 2026
+* Date:                 Fri Aug  7 08:49:55 PM CEST 2026
 * Job name:             timingfig
-* Job id:               55413386
+* Job id:               56119423
 * User:                 omacias
 * Account:              grand
 * Submit host:          ccahm002
 * Partition:            gpu_v100
 * Quality of service:   gpu
-* Nodelist:             ccwgslurm0107
+* Nodelist:             ccwgslurm0114
 * Operating System:     Red Hat Enterprise Linux release 9.8 (Plow)
 * Architecture:         x86_64
 **********************************************************************
-Thu Jul 30 03:08:19 2026       
+Fri Aug  7 20:49:55 2026       
 +-----------------------------------------------------------------------------------------+
 | NVIDIA-SMI 580.173.02             Driver Version: 580.173.02     CUDA Version: 13.0     |
 +-----------------------------------------+------------------------+----------------------+
@@ -23,7 +23,7 @@ Thu Jul 30 03:08:19 2026
 |                                         |                        |               MIG M. |
 |=========================================+========================+======================|
 |   0  Tesla V100-PCIE-32GB           Off |   00000000:18:00.0 Off |                    0 |
-| N/A   32C    P0             27W /  250W |       0MiB /  32768MiB |      0%      Default |
+| N/A   31C    P0             24W /  250W |       0MiB /  32768MiB |      0%      Default |
 |                                         |                        |                  N/A |
 +-----------------------------------------+------------------------+----------------------+
 
@@ -51,10 +51,10 @@ Done. Figure written under: /pbs/home/o/omacias/Sam_project/raytune_lib_final/ne
 *                      SLURM Batch System                      *
 *           IN2P3 Computing Centre, Villeurbanne FR            *
 ****************************************************************
-Date: Thu Jul 30 03:24:46 AM CEST 2026
+Date: Fri Aug  7 08:55:26 PM CEST 2026
 Job informations can be found using these commands:
 Accounting:
-sacct -j 55413386
+sacct -j 56119423
 Efficiency:
-seff 55413386
+seff 56119423
 ****************************************************************

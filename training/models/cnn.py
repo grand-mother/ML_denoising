@@ -105,6 +105,10 @@ class DualBranchAutoencoder(nn.Module):
         # Determine whether to use the frequency branch (default is True)
         self.use_freq_branch = model_config.get('use_freq_branch', True)
 
+        self.freq_fusion = model_config.get('freq_fusion', 'spectral')
+        if self.freq_fusion not in ('spectral', 'global_pool'):
+            raise ValueError(f"Unknown freq_fusion '{self.freq_fusion}'")
+
         # Extract hyperparameters from model_config
         time_branch_params = model_config.get('time_branch', {})
         freq_branch_params = model_config.get('freq_branch', {})
@@ -183,16 +187,21 @@ class DualBranchAutoencoder(nn.Module):
             mag_features = self.magnitude_branch(magnitude)
             phase_features = self.phase_branch(phase)
 
-            # Convert frequency features to global context via Adaptive Avg Pooling
-            mag_global = F.adaptive_avg_pool1d(mag_features, 1)      # [B, C, 1]
-            phase_global = F.adaptive_avg_pool1d(phase_features, 1)  # [B, C, 1]
-            
-            # Expand the global frequency context across the entire temporal sequence
-            mag_expanded = mag_global.expand(-1, -1, time_features.size(2))
-            phase_expanded = phase_global.expand(-1, -1, time_features.size(2))
-
-            # Safely concatenate: the temporal structure is perfectly preserved
-            combined_features = torch.cat((time_features, mag_expanded, phase_expanded), dim=1)
+            if self.freq_fusion == 'spectral':
+                # ORIGINAL wiring (all archived production checkpoints).
+                # Align all features to the same size and keep the spectral axis.
+                min_size = min(time_features.size(2), mag_features.size(2), phase_features.size(2))
+                time_features = F.interpolate(time_features, size=min_size, mode='linear', align_corners=False)
+                mag_features = F.interpolate(mag_features, size=min_size, mode='linear', align_corners=False)
+                phase_features = F.interpolate(phase_features, size=min_size, mode='linear', align_corners=False)
+                combined_features = torch.cat((time_features, mag_features, phase_features), dim=1)
+            else:
+                # 'global_pool' wiring (fixed-config ablation checkpoints only).
+                mag_global = F.adaptive_avg_pool1d(mag_features, 1)      # [B, C, 1]
+                phase_global = F.adaptive_avg_pool1d(phase_features, 1)  # [B, C, 1]
+                mag_expanded = mag_global.expand(-1, -1, time_features.size(2))
+                phase_expanded = phase_global.expand(-1, -1, time_features.size(2))
+                combined_features = torch.cat((time_features, mag_expanded, phase_expanded), dim=1)
         else:
             combined_features = time_features
         

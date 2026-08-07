@@ -83,8 +83,11 @@ purely a units relabel, as requested.
 One related correction: `ablation_peak_time_efficiency_comparison` computes its peak times as
 `argmax(envelope) * dt_ns`, i.e. genuinely in nanoseconds, so its axis label was restored to
 "ns" (an earlier blanket relabel to "samples" had made it wrong). Its own `dt_ns` default was
-**2.0** and has now been corrected to 0.5 along with every other `dt_ns` in the repository —
-see item 7, which also records that this changes that figure's content, not only its label.
+**2.0** and has now been corrected to 0.5 along with every other `dt_ns` in the repository.
+This rescales that figure's time axis by a factor of four. It is a diagnostic from the
+earlier `time_vs_freq_model` study (compact conv 32/16 models) and is **not** one of the
+figures in the manuscript, so it has not been regenerated; the timing result reported in the
+paper is Fig. 7, which is unaffected because its cut is applied in samples (see above).
 
 ---
 
@@ -95,8 +98,9 @@ confirm the noisy and denoised curves use the same trigger-passing sample and SN
 
 **Which figure this refers to.** The answers below describe
 `visualization/amplitude_diagnostic_plot/make_fig_amplitude_bias_vs_snr.py` — the **new
-revised amplitude-bias figure** built for referee Q5. It lives only in the
-`raytune_lib_final_v1` working tree (untracked, not yet committed) and is **not** on the
+revised amplitude-bias figure** built for referee Q5. It is committed on
+`raytune_lib_final_v1` (figure, per-bin counts, provenance record and split manifest under
+`new_figure/peak_amplitude_bias/`) and is **not** on the
 published `raytune_lib_final` branch. The **published** amplitude figure is
 `plot_amplitude_ratio_vs_snr_all_channels` in `overleaf_plots.py`, which uses **mean ± std**
 (not a percentile band) and the old full-window SNR. So the percentile band and shared-SNR
@@ -161,11 +165,27 @@ Every one of these fields is also written by the script itself to
 `new_figure/peak_amplitude_bias/figure_provenance.json` at run time, so the figure carries
 its own provenance record.
 
-Two evaluation-pipeline defects were fixed to make this record meaningful:
-`load_data_and_run_inference` previously evaluated at the **full 1024-sample** trace (a
-mismatch against the 512-sample training length) and used the **unseeded** `split_indices`,
-so the test split could not be recorded at all. Both are now explicit parameters
-(`eval_len`, `split_seed`), set to 512 and 12345 for this figure.
+Three evaluation-pipeline defects were fixed to make this record meaningful:
+
+1. `load_data_and_run_inference` previously evaluated at the **full 1024-sample** trace (a
+   mismatch against the 512-sample training length) and
+2. used the **unseeded** `split_indices`, so the test split could not be recorded at all.
+   Both are now explicit parameters (`eval_len`, `split_seed`), set to 512 and 12345.
+3. **Model-wiring restoration (affects every regenerated `multi_v3` figure).** When the
+   `use_freq_branch` toggle was added for the ablation, `DualBranchAutoencoder.forward` was
+   inadvertently rewired: the frequency features were adaptive-avg-pooled to one value per
+   channel and broadcast along time, instead of the original wiring (spectral axis kept,
+   all branches interpolated to a common length and concatenated) that every archived
+   production checkpoint was trained with. The two wirings have **identical parameter
+   shapes**, so loading a production checkpoint into the wrong wiring passes strict
+   `load_state_dict` silently — and costs ≈6 dB median PSNR (27.4 vs 21.1 dB on 400 test
+   traces, 2 < SNR < 5). The original wiring is restored as the default
+   (`freq_fusion: "spectral"` in `training/models/cnn.py`, bit-identical to the initial
+   commit's forward), the revision-era wiring is retained as `"global_pool"` for the
+   fixed-config ablation checkpoints that were trained with it (their configs carry the
+   flag), and all `multi_v3` figures in `new_figure/` were regenerated with the correct
+   wiring. The ablation comparison of item 5 is unaffected — both of its cells were
+   trained and evaluated consistently under `"global_pool"`.
 
 ---
 
@@ -183,7 +203,7 @@ x-axis (last row below).
 | Ingredient | Actual value in the script | Evidence |
 |---|---|---|
 | **Band-pass** | 4th-order Butterworth, **50–200 MHz**, applied (`sosfiltfilt`) to clean and reconstructed before the fidelity metrics; also applied inside the input-SNR | `apply_bandpass=True`, `f_lo_hz=50e6`, `f_hi_hz=200e6`, `butter_order=4` (`:94-96`), `apply_bandpass_to_snr=True` (`:101`) |
-| **Signal / ROI window** | ±**150 ns** around the clean Hilbert-envelope peak (per trace, per channel) | `roi_half_width_ns=150.0` (`:74`); ROI at `_nmse_snrout_and_cleanpower_in_roi` (`:298`) |
+| **Signal / ROI window** | nominally ±**150 ns** around the clean Hilbert-envelope peak (per trace, per channel). At the 0.5 ns sampling this is ±300 samples, so on the 512-sample evaluation traces the window is clipped to the trace and the metrics are **full-trace** in practice — see item 7 | `roi_half_width_ns=150.0` (`:74`); ROI at `_nmse_snrout_and_cleanpower_in_roi` (`:298`), clipped by `_roi_indices_centered_on_peak_index` (`:207-211`) |
 | **Output-SNR definition** | `SNR_out(dB) = 10·log10( Σclean² / Σ(rec−clean)² )` over the band-limited ROI; the figure plots `ΔSNR_out = SNR_out(rec) − SNR_out(noisy)` | `snrout_db = 10*log10(sig_pow/err_pow)` (`:311`), `sig_pow=Σx²`, `err_pow=Σ(y−x)²` |
 | **Truth-dependent selection** | Clean-power gate: drop trace-channels whose clean ROI power is below the 10th percentile of positive clean powers (≥200 positives required); applied to noisy and denoised identically | `apply_clean_power_gate=True`, `clean_power_gate_quantile=0.10`, `min_count=200` (`:104-106`) |
 | **Input-SNR (x-axis)** | The paper definition `max(clean)/std(noisy)`, standard deviation over the **full trace**, per channel — the same definition as every other figure. The published branch had used `_compute_snr_roi_peak_style` (noisy-ROI-peak / envelope-MAD, ±150 ns exclusion); that variant is now unused | computed inline at `:390-394`; the ROI-peak helper remains defined but is not called |
@@ -197,13 +217,19 @@ x-axis (last row below).
    applies to the SNR any more.
 2. **The ±150 ns window is still used, but only for the fidelity ROI.** `roi_half_width_ns
    = 150` still defines the window in which NMSE and output SNR are computed; it is no
-   longer part of any SNR definition. The caption should keep the ROI statement and drop any
-   mention of an SNR exclusion window.
+   longer part of any SNR definition. The caption should drop any mention of an SNR
+   exclusion window, and should describe the fidelity metrics as full-trace band-limited
+   quantities, since at 0.5 ns the ±150 ns window covers the whole 512-sample evaluation
+   trace (item 7).
 3. **Band-limited vs broadband.** The fidelity metrics here are **band-limited (50–200 MHz)**,
    unlike the amplitude/timing figures which are broadband. The caption must say so. The
    input SNR itself is broadband, matching the other figures.
-4. **Regeneration.** The x-axis definition changed, so this appendix figure should be
-   regenerated if it is retained in the revision.
+4. **Regeneration — done.** The x-axis definition changed, so the figure was regenerated by
+   inference and plotting only (no retraining), with the production `multi_v3` checkpoint at
+   its 512-sample training length on the seeded test split. The artifact is committed at
+   `new_figure/appendix_nmse_snr_gain/nmse_snr_gain_vs_snr.pdf`, together with the exact
+   command (`run_appendix_figure.sh`), the run log, and the split manifest
+   (`evaluation_manifest.npz`) recording the 41,068 test indices used.
 
 ---
 
@@ -272,7 +298,11 @@ This differs from the earlier `time_vs_freq_model` comparison (compact conv 32/1
 which showed no measurable gap; at the production model capacity, the Fourier branches do
 help. Full record: `results/fixed_config_runs/test_split_comparison.json`.
 
-Checkpoints, per-epoch metrics, and configs: `results/fixed_config_runs/{dual_branch,time_only}/`.
+Per-epoch metrics, configs, and training logs: `results/fixed_config_runs/{dual_branch,time_only}/`
+(`best_trial_config.json`, `best_trial_metrics.json`, `detailed_metrics.json`, `train.out`).
+The two `best_model.pth` weight files are deliberately not committed to the repository; they
+are available on request. The seeded split both cells were evaluated on is committed as
+`results/fixed_config_runs/split_manifest.npz`.
 
 ---
 
@@ -280,9 +310,18 @@ Checkpoints, per-epoch metrics, and configs: `results/fixed_config_runs/{dual_br
 
 **(a) Training-history figure ↔ selected 63-epoch trial — confirmed.** The selected
 `multi_v3` trial ran **63 epochs** (`detailed_metrics.json`: `epochs` 0–62, with 63
-`training_losses` and 63 `validation_losses` points); the training-history figure
-`Summary_Plots/metrics.pdf` is plotted from those arrays, so it has 63 points and matches
-the selected trial. (100 was the configured ASHA maximum; the trial stopped at 63.)
+`training_losses` and 63 `validation_losses` points); the training-history figure is plotted
+from those arrays, so it has 63 points and matches the selected trial. (100 was the
+configured ASHA maximum; the trial stopped at 63.)
+
+The regenerated figure is committed at
+`new_figure/training_loss_vs_eporchs_metrics/training_loss_vs_eporchs_metrics.pdf`. Its
+final validation loss reads **0.19997**, which matches
+`multi_v3_CNN_100epochs_36samples/best_trial_metrics.json` (`validation_loss` 0.199971886)
+digit for digit — an independent check that the plotted history belongs to the selected
+trial and not to another run. Note this figure is a record of the optimisation (per-epoch
+training and validation loss); it is not a held-out evaluation, unlike every performance
+number quoted elsewhere in this reply, which comes from the test split.
 
 **(b) Ray Tune search ranges — verified; all selected values lie inside.** Ranges from
 `configs/training_config.json` on the published `raytune_lib_final` branch (content identical
@@ -354,12 +393,23 @@ the standalone figure scripts carry it in their own config dataclass.
 
 - The example waveform/spectrum figure (`traces_plot_time_frequency`) previously used
   `dt_ns = 1.0`, so its **time axis was a factor of two too long and its frequency axis a
-  factor of two too low**. Regenerating it with 0.5 ns fixes both axes; the underlying
-  traces are unchanged.
+  factor of two too low**. It has been regenerated at 0.5 ns; the underlying traces are
+  unchanged, only the two axes are rescaled. Artifact and exact command:
+  `new_figure/traces_time_frequency/` (`make_fig_traces_time_frequency.py`,
+  `run_traces_figure.sh`). The regeneration is deterministic — seeded 80/10/10 split
+  (seed 12345), no swap augmentation, and the 512-sample production input length — whereas
+  the notebook cell that produced the published version used an unseeded split with 50 %
+  swap augmentation and therefore picked a different example trace on every execution.
 - The **appendix band-limited figures change in content**, not only in labelling, because
   both the pass-band and the ROI width were wrong. They should be regenerated before
   submission if they are retained. No retraining is involved.
-- One point for the text: with 0.5 ns sampling, a ±150 ns ROI spans 601 samples, which is
-  most of a 1024-sample trace. If the intent was a narrower window, `roi_half_width_ns`
-  should be revisited; the value is stated here so the choice is explicit rather than
-  implicit in a wrong `dt`.
+- **One consequence to state explicitly in the caption.** At 0.5 ns sampling a ±150 ns ROI
+  is `round(150/0.5) = 300` samples on each side, i.e. 601 samples. The appendix figure is
+  evaluated at the 512-sample production input length, so the ROI is clipped to the trace
+  bounds and the fidelity metrics are in practice computed over the **entire** trace rather
+  than over a window centred on the pulse. The caption should therefore describe the NMSE
+  and output SNR as full-trace, band-limited quantities; describing them as computed in a
+  ±150 ns window around the pulse would not match what the code does at this sampling
+  interval. `roi_half_width_ns` is left at its published value of 150 ns so that the
+  parameter set is unchanged, and the effective behaviour is documented here rather than
+  left implicit.

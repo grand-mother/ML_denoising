@@ -1,0 +1,56 @@
+**********************************************************************
+*                         SLURM Batch System                         *
+*              IN2P3 Computing Centre, Villeurbanne FR               *
+**********************************************************************
+* Date:                 Fri Aug  7 10:47:27 AM CEST 2026
+* Job name:             fwddiag
+* Job id:               56041883
+* User:                 omacias
+* Account:              grand
+* Submit host:          ccahm002
+* Partition:            gpu_v100
+* Quality of service:   gpu
+* Nodelist:             ccwgslurm0107
+* Operating System:     Red Hat Enterprise Linux release 9.8 (Plow)
+* Architecture:         x86_64
+**********************************************************************
+########## forward wiring A/B ##########
+/pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/traces_time_frequency/diag_forward_wiring.py:34: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  state = torch.load(f"{M}/best_model.pth", map_location="cpu")
+Loaded noise file 0: shape (3, 12500, 1024)
+Noise signals shape: (3, 300000, 1024)
+Clean signals shape: (3, 410673, 1024)
+/pbs/home/o/omacias/Sam_project/raytune_lib_final/training/raytune_training_function.py:295: RuntimeWarning: divide by zero encountered in log10
+  psnr = 10 * np.log10(max_pixel**2 / rmse)
+forward=old  median PSNR =  18.05 dB   (2<SNR<5 subset:  27.37 dB, n=237)
+forward=new  median PSNR =  16.06 dB   (2<SNR<5 subset:  21.05 dB, n=237)
+/pbs/home/o/omacias/Sam_project/raytune_lib_final/new_figure/traces_time_frequency/diag_forward_wiring.py:97: RuntimeWarning: invalid value encountered in subtract
+  f"{np.median(np.array(res['old']) - np.array(res['new'])):.2f} dB")
+
+median per-trace PSNR difference (old - new): nan dB
+
+########## crop-convention control (fixed) ##########
+Loaded noise file 0: shape (3, 12500, 1024)
+Noise signals shape: (3, 300000, 1024)
+Clean signals shape: (3, 410673, 1024)
+/pbs/home/o/omacias/Sam_project/raytune_lib_final/training/raytune_training_function.py:295: RuntimeWarning: divide by zero encountered in log10
+  psnr = 10 * np.log10(max_pixel**2 / rmse)
+notebook  (no_random=False, swap=0.5, len 512)
+    trace_len=512  median PSNR =  16.13 dB   (2<SNR<5 subset:  21.45 dB, n=241)
+mine v1   (no_random=True,  swap=0.0, len 1024)
+    trace_len=1024  median PSNR =  17.01 dB   (2<SNR<5 subset:  22.31 dB, n=227)
+mine v2   (no_random=True,  swap=0.0, len 512)
+    trace_len=512  median PSNR =  16.06 dB   (2<SNR<5 subset:  21.05 dB, n=237)
+
+=== done ===
+****************************************************************
+*                      SLURM Batch System                      *
+*           IN2P3 Computing Centre, Villeurbanne FR            *
+****************************************************************
+Date: Fri Aug  7 10:53:46 AM CEST 2026
+Job informations can be found using these commands:
+Accounting:
+sacct -j 56041883
+Efficiency:
+seff 56041883
+****************************************************************
