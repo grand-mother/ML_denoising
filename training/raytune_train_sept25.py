@@ -24,12 +24,14 @@ sys.path.insert(0, str(ROOT_DIR))
 from training.models.cnn import DualBranchAutoencoder as CNN
 
 from training.raytune_training_function import (
-    psnr_loss, 
+    psnr_loss,
     multi_domain_mse_loss,
     multi_domain_l1_loss,
-    calculate_psnr_with_peak, 
+    calculate_psnr_with_peak,
     peak_to_peak_ratio
 )
+# Reproduction of archived checkpoints only; see training/legacy_losses.py.
+from training.legacy_losses import multi_domain_loss_v2, multi_domain_loss_v3
 
 def cleanup_old_checkpoints_dynamic(epoch, checkpoint_base_dir=None, keep_last_n=6):
     """
@@ -159,6 +161,18 @@ def get_criterion(name, config=None):
         return lambda pred, clean: multi_domain_mse_loss(clean, pred, mag_weight= config["mag_weight"], phase_weight= config["phase_weight"], phase_weighting=config.get("phase_weighting", "none"))
     elif name == "multi_l1": ## multi l1 loss with mag and phase
         return lambda pred, clean: multi_domain_l1_loss(clean, pred, mag_weight= config["mag_weight"], phase_weight= config["phase_weight"], phase_weighting=config.get("phase_weighting", "none"))
+
+    # --- LEGACY names, for reproducing archived checkpoints only. ---------------
+    # Archived best_trial_config.json files carry "multi_v2"/"multi_v3", which the
+    # current API renamed to "multi_mse"/"multi_l1". The old losses are NOT the new
+    # ones: their phase term applies L1/MSE directly to torch.angle, which is
+    # discontinuous at +/-pi and mis-scores errors across the wrap-around (reply2).
+    # They are resolvable here so that a production config still loads; do not
+    # select them for new training.
+    elif name == "multi_v2":  ## LEGACY == archived multi_v2 (direct phase, defective)
+        return lambda pred, clean: multi_domain_loss_v2(clean, pred, mag_weight=config["mag_weight"], phase_weight=config["phase_weight"])
+    elif name == "multi_v3":  ## LEGACY == archived multi_v3, the production checkpoint (direct phase, defective)
+        return lambda pred, clean: multi_domain_loss_v3(clean, pred, mag_weight=config["mag_weight"], phase_weight=config["phase_weight"])
     else:
         raise ValueError(f"Unknown criterion: {name}")
 
@@ -240,48 +254,26 @@ def train_validate(config, checkpoint_dir=None, train_loader=None, valid_loader=
         with torch.set_grad_enabled(True):
             model.train()
             total_train_loss = 0
-            valid_batches = 0
+            # This loop is kept identical to the production run (2025-10-28,
+            # raytune_lib_sept25): zero_grad -> forward -> loss -> backward -> step,
+            # with no gradient clipping and no NaN/Inf batch guards. Both had been
+            # added here after the fact (this repository dates from 2026-01-12, two and
+            # a half months after that run) and were removed on 2026-08-08 so the
+            # archived script does not misdescribe the training that produced the
+            # published checkpoints. Do not reinstate either without also restating the
+            # training description in the paper.
             for k, (noisy_data, clean_data) in enumerate(train_loader):
                 noisy_data, clean_data = noisy_data.to(device), clean_data.to(device)
-                
-                # Skip batches with NaN values in input data
-                if torch.isnan(noisy_data).any() or torch.isnan(clean_data).any():
-                    print(f"Warning: NaN detected in input batch {k}, skipping...")
-                    continue
-                
                 optimizer.zero_grad()
                 outputs = model(noisy_data)
-                
-                # Check for NaN in model outputs
-                if torch.isnan(outputs).any():
-                    print(f"Warning: NaN detected in model output at batch {k}, skipping...")
-                    continue
-                
                 loss = criterion(outputs, clean_data)
-                
-                # Skip if loss is NaN or Inf
-                if torch.isnan(loss) or torch.isinf(loss):
-                    print(f"Warning: Invalid loss at batch {k}: {loss.item()}, skipping...")
-                    continue
-                
                 loss.backward()
-                
-                # Gradient clipping to prevent exploding gradients
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                
                 optimizer.step()
                 if not (scheduler is None):  
                     scheduler.step()
 
                 total_train_loss += loss.item()
-                valid_batches += 1
-            
-            # Avoid division by zero if all batches were skipped
-            if valid_batches > 0:
-                avg_train_loss = total_train_loss / valid_batches
-            else:
-                print("Warning: All training batches were skipped due to NaN values!")
-                avg_train_loss = float('nan')
+            avg_train_loss = total_train_loss / len(train_loader)
 
             model.eval()
             total_valid_loss, total_psnr, total_peak_to_peak_ratio = 0, 0, 0
