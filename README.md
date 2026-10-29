@@ -150,7 +150,7 @@ If you use this code, please cite:
 @article{
   title={Deep-Learning Denoising of Radio Observations for Ultra-High-Energy Cosmic-Ray Detection},
   author={Zhisen Lai, Oscar Macias, Aurelien Benoit--Levy, Arsene Ferriere, Matıas Tueros},
-  journal={},
+  journal={Physical Review D 114 (6), 062011},
   year={2026}
 }
 ```
